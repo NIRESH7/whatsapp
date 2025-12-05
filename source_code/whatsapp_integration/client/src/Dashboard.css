@@ -1,0 +1,4473 @@
+/* Professional Blue Theme */
+/* Variables moved to index.css for global access */
+
+/* Main Container */
+.dashboard-container {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+    background-color: var(--bg-slate);
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    color: var(--text-primary);
+}
+
+/* Sidebar */
+.sidebar {
+    width: 320px;
+    background-color: var(--surface-white);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    z-index: 2;
+}
+
+.sidebar-header {
+    height: 70px;
+    padding: 0 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.sidebar-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    letter-spacing: -0.5px;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.upload-btn-wrapper {
+    position: relative;
+    overflow: hidden;
+    display: inline-block;
+}
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    background-color: var(--primary-light);
+    color: var(--primary-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 1.2rem;
+}
+
+.icon-btn:hover {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.upload-btn-wrapper input[type=file] {
+    font-size: 100px;
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+
+/* New Chat Modal */
+.new-chat-modal {
+    margin: 10px 15px;
+    padding: 10px;
+    background-color: var(--surface-white);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    animation: slideDown 0.2s ease-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+@keyframes slideDown {
+    from {
+        transform: translateY(-10px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.new-chat-modal input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    outline: none;
+    font-size: 0.9rem;
+}
+
+.new-chat-modal input:focus {
+    border-color: var(--primary-blue);
+}
+
+.new-chat-modal button {
+    padding: 8px 12px;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+}
+
+.new-chat-modal .close-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: var(--text-secondary) !important;
+    padding: 4px 8px !important;
+    font-size: 1.4rem !important;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+}
+
+.new-chat-modal .close-btn:hover {
+    color: var(--text-primary);
+    background: transparent;
+}
+
+
+/* Search Bar */
+.search-bar-container {
+    padding: 15px 20px;
+    background-color: var(--surface-white);
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: var(--bg-slate);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: var(--primary-blue);
+    background-color: var(--input-bg);
+}
+
+.dark .search-input {
+    color: white !important;
+    font-weight: bold !important;
+}
+
+/* Contact List */
+.contact-list {
+    flex: 1;
+    overflow-y: auto;
+}
+
+.contact-item {
+    display: flex;
+    align-items: center;
+    padding: 15px 20px;
+    cursor: pointer;
+    border-bottom: 1px solid transparent;
+    transition: background-color 0.2s;
+}
+
+.contact-item:hover {
+    background-color: var(--bg-slate);
+}
+
+.contact-item.active {
+    background-color: var(--primary-light);
+    border-right: 3px solid var(--primary-blue);
+}
+
+.contact-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-right: 15px;
+    box-shadow: var(--shadow-sm);
+}
+
+.contact-info {
+    flex: 1;
+    min-width: 0;
+    /* For text truncation */
+}
+
+.contact-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.contact-number {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Chat Window */
+.chat-window {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background-color: var(--hover-bg);
+    /* Very light slate */
+    position: relative;
+}
+
+.chat-header {
+    height: 70px;
+    background-color: var(--surface-white);
+    padding: 0 25px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: var(--shadow-sm);
+    z-index: 1;
+}
+
+.chat-header-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #64748b, #475569);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+}
+
+.chat-header-info h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.chat-header-info span {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Messages */
+.message-list {
+    flex: 1;
+    padding: 25px 40px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.message-item {
+    max-width: 60%;
+    padding: 10px 14px;
+    border-radius: 12px;
+    position: relative;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    box-shadow: var(--shadow-sm);
+}
+
+.message-item.sent {
+    align-self: flex-end;
+    background-color: var(--msg-sent-bg);
+    color: var(--text-primary);
+    border-bottom-right-radius: 2px;
+    margin-left: auto;
+}
+
+.message-item.received {
+    align-self: flex-start;
+    background-color: var(--msg-received-bg);
+    color: var(--text-primary);
+    border-bottom-left-radius: 2px;
+    margin-right: auto;
+}
+
+.message-text {
+    margin-bottom: 4px;
+    word-wrap: break-word;
+}
+
+.message-time {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    text-align: right;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
+/* Media */
+.message-media img,
+.message-media video {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-bottom: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.document-link {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--primary-dark);
+    font-weight: 500;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+
+.document-link:hover {
+    background: white;
+}
+
+/* Chat Input Area */
+.chat-input-area {
+    padding: 20px 25px;
+    background-color: var(--surface-white);
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.attachment-btn {
+    width: 40px;
+    height: 40px;
+    background-color: transparent;
+    color: var(--text-secondary);
+    font-size: 1.4rem;
+    box-shadow: none;
+    padding: 0;
+}
+
+.attachment-btn:hover {
+    background-color: var(--bg-slate);
+    color: var(--primary-blue);
+}
+
+.chat-input-area textarea {
+    flex: 1;
+    height: 48px;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    background-color: var(--bg-slate);
+    resize: none;
+    font-family: inherit;
+}
+
+.action-buttons button {
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 0 20px;
+    height: 48px;
+    border-radius: 24px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background-color 0.2s;
+    box-shadow: var(--shadow-md);
+}
+
+.action-buttons button:hover {
+    background-color: var(--primary-dark);
+}
+
+.action-buttons button:disabled {
+    opacity: 0.7;
+    cursor: default;
+    box-shadow: none;
+}
+
+.template-btn {
+    background-color: var(--surface-white) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+}
+
+.template-btn:hover {
+    background-color: var(--bg-slate) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    text-align: center;
+    background-color: var(--hover-bg);
+}
+
+.welcome-screen h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        position: absolute;
+        height: 100%;
+        transform: translateX(0);
+    }
+
+    .chat-window {
+        display: none;
+        /* Simple toggle logic needed for full mobile support */
+    }
+
+    /* When a chat is active, we'd toggle classes to show chat-window and hide sidebar */
+}
+
+.dark .chat-input-area textarea {
+    color: white !important;
+    font-weight: bold !important;
+}
+
+/* Fix for Contact List Layout - WhatsApp Web Style */
+.contact-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.contact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    width: 100%;
+}
+
+.contact-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin-right: 15px;
+    /* Forced gap */
+}
+
+.contact-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.contact-time.unread {
+    color: blue;
+    font-weight: 600;
+}
+
+.contact-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.contact-message-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    background-color: transparent;
+    color: var(--text-secondary);
+    font-size: 1.4rem;
+    box-shadow: none;
+    padding: 0;
+}
+
+.attachment-btn:hover {
+    background-color: var(--bg-slate);
+    color: var(--primary-blue);
+}
+
+.chat-input-area textarea {
+    flex: 1;
+    height: 48px;
+    padding: 12px 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    background-color: var(--bg-slate);
+    resize: none;
+    font-family: inherit;
+}
+
+.action-buttons button {
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 0 20px;
+    height: 48px;
+    border-radius: 24px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.95rem;
+    transition: background-color 0.2s;
+    box-shadow: var(--shadow-md);
+}
+
+.action-buttons button:hover {
+    background-color: var(--primary-dark);
+}
+
+.action-buttons button:disabled {
+    opacity: 0.7;
+    cursor: default;
+    box-shadow: none;
+}
+
+.template-btn {
+    background-color: var(--surface-white) !important;
+    color: var(--text-secondary) !important;
+    border: 1px solid var(--border-color) !important;
+    box-shadow: none !important;
+}
+
+.template-btn:hover {
+    background-color: var(--bg-slate) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    text-align: center;
+    background-color: var(--hover-bg);
+}
+
+.welcome-screen h2 {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 10px;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        position: absolute;
+        height: 100%;
+        transform: translateX(0);
+    }
+
+    .chat-window {
+        display: none;
+        /* Simple toggle logic needed for full mobile support */
+    }
+
+    /* When a chat is active, we'd toggle classes to show chat-window and hide sidebar */
+}
+
+.dark .chat-input-area textarea {
+    color: white !important;
+    font-weight: bold !important;
+}
+
+/* Fix for Contact List Layout - WhatsApp Web Style */
+.contact-info {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.contact-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+    width: 100%;
+}
+
+.contact-name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin-right: 15px;
+    /* Forced gap */
+}
+
+.contact-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.contact-time.unread {
+    color: blue;
+    font-weight: 600;
+}
+
+.contact-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.contact-message-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.unread-badge {
+    background-color: blue;
+    /* Green Badge */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Bulk Messaging Styles */
+.contact-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-secondary);
+    border-radius: 4px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.contact-checkbox.checked {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+}
+
+.contact-item.selected {
+    background-color: var(--primary-light);
+}
+
+.bulk-action-bar {
+    padding: 10px 20px;
+    background-color: var(--surface-white);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.bulk-action-bar button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.bulk-action-bar button:hover {
+    background-color: var(--primary-dark);
+}
+
+.icon-btn.active {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+/* Bulk Modal */
+.bulk-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    /* High z-index */
+    backdrop-filter: blur(2px);
+    /* Nice blur effect */
+}
+
+.bulk-modal {
+    background-color: var(--surface-white);
+    padding: 30px;
+    /* More padding */
+    border-radius: 16px;
+    /* Rounder corners */
+    width: 600px;
+    /* Bigger width */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    /* Stronger shadow */
+    animation: slideDown 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.bulk-modal h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    /* Larger title */
+    text-align: center;
+}
+
+.bulk-modal textarea {
+    width: 100%;
+    height: 200px;
+    /* Taller textarea */
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-slate);
+    resize: none;
+    font-family: inherit;
+    font-size: 1rem;
+    /* Larger text */
+    margin-bottom: 25px;
+    outline: none;
+}
+
+.bulk-modal textarea:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+}
+
+.bulk-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+
+.bulk-modal-actions button {
+    padding: 12px 24px;
+    /* Larger buttons */
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+}
+
+.bulk-modal-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.bulk-modal-actions .cancel-btn:hover {
+    background-color: var(--bg-slate);
+    color: var(--text-primary);
+}
+
+.bulk-modal-actions .send-btn {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.bulk-modal-actions .send-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+
+
+.contact-time.unread {
+    color: blue;
+    font-weight: 600;
+}
+
+.contact-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.contact-message-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.unread-badge {
+    background-color: blue;
+    /* Green Badge */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Bulk Messaging Styles */
+.contact-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-secondary);
+    border-radius: 4px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.contact-checkbox.checked {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+}
+
+.contact-item.selected {
+    background-color: var(--primary-light);
+}
+
+.bulk-action-bar {
+    padding: 10px 20px;
+    background-color: var(--surface-white);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.bulk-action-bar button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.bulk-action-bar button:hover {
+    background-color: var(--primary-dark);
+}
+
+.icon-btn.active {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+/* Bulk Modal */
+.bulk-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    /* High z-index */
+    backdrop-filter: blur(2px);
+    /* Nice blur effect */
+}
+
+.bulk-modal {
+    background-color: var(--surface-white);
+    padding: 30px;
+    /* More padding */
+    border-radius: 16px;
+    /* Rounder corners */
+    width: 600px;
+    /* Bigger width */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    /* Stronger shadow */
+    animation: slideDown 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.bulk-modal h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    /* Larger title */
+    text-align: center;
+}
+
+.bulk-modal textarea {
+    width: 100%;
+    height: 200px;
+    /* Taller textarea */
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-slate);
+    resize: none;
+    font-family: inherit;
+    font-size: 1rem;
+    /* Larger text */
+    margin-bottom: 25px;
+    outline: none;
+}
+
+.bulk-modal textarea:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+}
+
+.bulk-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+
+.bulk-modal-actions button {
+    padding: 12px 24px;
+    /* Larger buttons */
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+}
+
+.bulk-modal-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.bulk-modal-actions .cancel-btn:hover {
+    background-color: var(--bg-slate);
+    color: var(--text-primary);
+}
+
+.bulk-modal-actions .send-btn {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.bulk-modal-actions .send-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+
+
+.contact-time.unread {
+    color: blue;
+    font-weight: 600;
+}
+
+.contact-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.contact-message-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    margin-right: 10px;
+}
+
+.unread-badge {
+    background-color: blue;
+    /* Green Badge */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 50%;
+    min-width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Bulk Messaging Styles */
+.contact-checkbox {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--text-secondary);
+    border-radius: 4px;
+    margin-right: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    transition: all 0.2s;
+}
+
+.contact-checkbox.checked {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+}
+
+.contact-item.selected {
+    background-color: var(--primary-light);
+}
+
+.bulk-action-bar {
+    padding: 10px 20px;
+    background-color: var(--surface-white);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: center;
+}
+
+.bulk-action-bar button {
+    width: 100%;
+    padding: 10px;
+    background-color: var(--primary-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.bulk-action-bar button:hover {
+    background-color: var(--primary-dark);
+}
+
+.icon-btn.active {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+/* Bulk Modal */
+.bulk-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    /* High z-index */
+    backdrop-filter: blur(2px);
+    /* Nice blur effect */
+}
+
+.bulk-modal {
+    background-color: var(--surface-white);
+    padding: 30px;
+    /* More padding */
+    border-radius: 16px;
+    /* Rounder corners */
+    width: 600px;
+    /* Bigger width */
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+    /* Stronger shadow */
+    animation: slideDown 0.2s ease-out;
+    display: flex;
+    flex-direction: column;
+}
+
+.bulk-modal h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    /* Larger title */
+    text-align: center;
+}
+
+.bulk-modal textarea {
+    width: 100%;
+    height: 200px;
+    /* Taller textarea */
+    padding: 15px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background-color: var(--bg-slate);
+    resize: none;
+    font-family: inherit;
+    font-size: 1rem;
+    /* Larger text */
+    margin-bottom: 25px;
+    outline: none;
+}
+
+.bulk-modal textarea:focus {
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+}
+
+.bulk-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+
+.bulk-modal-actions button {
+    padding: 12px 24px;
+    /* Larger buttons */
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+}
+
+.bulk-modal-actions .cancel-btn {
+    background-color: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+
+.bulk-modal-actions .cancel-btn:hover {
+    background-color: var(--bg-slate);
+    color: var(--text-primary);
+}
+
+.bulk-modal-actions .send-btn {
+    background-color: var(--primary-blue);
+    color: white;
+}
+
+.bulk-modal-actions .send-btn:hover {
+    background-color: var(--primary-dark);
+}
+
+.bulk-modal-actions .send-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.template-side-panel .template-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.template-side-panel .template-option-btn {
+    padding: 16px;
+    background-color: #f0f2f5;
+    color: #111b21;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+    width: 100%;
+}
+
+.template-side-panel .template-option-btn:hover {
+    background-color: #e8f0fe;
+    border-color: #007bff;
+    color: #007bff;
+}
+
+.template-side-panel .template-option-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Shrink chat when template panel is open */
+.dashboard-container:has(.template-side-panel) .chat-window {
+    width: calc(100% - 400px);
+}
+
+/* Professional Create Template Form Styles */
+
+.create-template-form {
+    padding: 30px 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    min-height: 400px;
+}
+
+.form-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e8ecef;
+}
+
+.form-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.form-header h4 {
+    margin: 0;
+    color: #1a1a1a;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.form-subtitle {
+    margin: 4px 0 0 0;
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #495057;
+    letter-spacing: 0.01em;
+}
+
+.template-input {
+    padding: 14px 16px;
+    border: 2px solid #e0e6ed;
+    border-radius: 10px;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: #ffffff;
+    color: #1a1a1a;
+}
+
+.template-input::placeholder {
+    color: #adb5bd;
+}
+
+.template-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.08);
+    transform: translateY(-1px);
+}
+
+.input-hint {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-style: italic;
+    margin-top: -4px;
+}
+
+.template-form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.template-form-actions .cancel-btn,
+.template-form-actions .save-btn {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.template-form-actions .cancel-btn {
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 2px solid #e0e6ed;
+}
+
+.template-form-actions .cancel-btn:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.template-form-actions .save-btn {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.template-form-actions .save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+}
+
+.template-form-actions .save-btn:active {
+    transform: translateY(0);
+}
+
+/* Template Panel Footer */
+.template-panel-footer {
+    padding: 20px;
+    border-top: 1px solid #e0e6ed;
+    background-color: #f8f9fa;
+}
+
+.create-template-btn {
+    width: 100%;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.create-template-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+}
+
+/* Template Item with Delete Button */
+.template-item-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.template-item-wrapper .template-option-btn {
+    flex: 1;
+}
+
+.delete-template-btn {
+    padding: 12px;
+    background-color: #fee;
+    color: #dc3545;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.delete-template-btn:hover {
+    background-color: #dc3545;
+    color: white;
+    border-color: #dc3545;
+    transform: scale(1.05);
+}
+
+.create-template-form {
+    padding: 30px 25px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+    min-height: 400px;
+}
+
+.form-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #e8ecef;
+}
+
+.form-icon {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    flex-shrink: 0;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+}
+
+.form-header h4 {
+    margin: 0;
+    color: #1a1a1a;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.form-subtitle {
+    margin: 4px 0 0 0;
+    color: #6c757d;
+    font-size: 0.875rem;
+    font-weight: 400;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.form-group label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #495057;
+    letter-spacing: 0.01em;
+}
+
+.template-input {
+    padding: 14px 16px;
+    border: 2px solid #e0e6ed;
+    border-radius: 10px;
+    font-size: 1rem;
+    outline: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    background-color: #ffffff;
+    color: #1a1a1a;
+}
+
+.template-input::placeholder {
+    color: #adb5bd;
+}
+
+.template-input:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 4px rgba(0, 123, 255, 0.08);
+    transform: translateY(-1px);
+}
+
+.input-hint {
+    font-size: 0.75rem;
+    color: #6c757d;
+    font-style: italic;
+    margin-top: -4px;
+}
+
+.template-form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 8px;
+}
+
+.template-form-actions .cancel-btn,
+.template-form-actions .save-btn {
+    flex: 1;
+    padding: 14px 20px;
+    border-radius: 10px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    font-size: 1rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.template-form-actions .cancel-btn {
+    background-color: #f8f9fa;
+    color: #495057;
+    border: 2px solid #e0e6ed;
+}
+
+.template-form-actions .cancel-btn:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.template-form-actions .save-btn {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+}
+
+.template-form-actions .save-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+}
+
+.template-form-actions .save-btn:active {
+    transform: translateY(0);
+}
+
+/* Template Panel Footer */
+.template-panel-footer {
+    padding: 20px;
+    border-top: 1px solid #e0e6ed;
+    background-color: #f8f9fa;
+}
+
+.create-template-btn {
+    width: 100%;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+}
+
+.create-template-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+}
+
+/* Template Item with Delete Button */
+.template-item-wrapper {
+    display: flex;
+    gap: 8px;
+    align-items: stretch;
+}
+
+.template-item-wrapper .template-option-btn {
+    flex: 1;
+}
+
+.delete-template-btn {
+    padding: 12px;
+    background-color: #fee;
+    color: #dc3545;
+    border: 1px solid #f5c6cb;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.delete-template-btn:hover {
+    background-color: #dc3545;
+    color: white;
+    border-color: #dc3545;
+    transform: scale(1.05);
+}
+
+.delete-template-btn svg {
+    display: block;
+}
+
+/* Template Item Wrapper for Delete Button */
+.template-item-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.template-item-wrapper .template-option-btn {
+    flex: 1;
+}
+
+.template-delete-btn {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.3);
+    opacity: 0;
+    transform: translateX(-10px);
+    pointer-events: none;
+}
+
+.template-item-wrapper:hover .template-delete-btn {
+    opacity: 1;
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+.template-delete-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.5);
+}
+
+.template-delete-btn:active {
+    transform: scale(0.95);
+}
+
+/* Template Item Wrapper - Delete Button Inside Box */
+.template-item-wrapper {
+    position: relative;
+    display: block;
+    width: 100%;
+}
+
+.template-item-wrapper .template-option-btn {
+    width: 100%;
+    position: relative;
+}
+
+.template-delete-btn {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 8px rgba(220, 53, 69, 0.4);
+    opacity: 0;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.template-item-wrapper:hover .template-delete-btn {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.template-delete-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%);
+    transform: translateY(-50%) scale(1.1);
+    box-shadow: 0 4px 12px rgba(220, 53, 69, 0.6);
+}
+
+.template-delete-btn:active {
+    transform: translateY(-50%) scale(0.95);
+}
+
+/* FINAL FIX: Delete button fully inside template box */
+.template-item-wrapper {
+    position: relative !important;
+    display: block !important;
+    width: 100% !important;
+}
+
+.template-item-wrapper .template-option-btn {
+    width: 100% !important;
+    position: relative !important;
+    padding-right: 50px !important;
+    /* Space for delete button */
+    overflow: hidden !important;
+    /* Ensure button stays inside */
+}
+
+.template-delete-btn {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    bottom: 8px !important;
+    transform: none !important;
+    width: 32px !important;
+    height: auto !important;
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 6px !important;
+    font-size: 1rem !important;
+    font-weight: bold !important;
+    cursor: pointer !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 2px 6px rgba(220, 53, 69, 0.3) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    z-index: 5 !important;
+}
+
+.template-item-wrapper:hover .template-delete-btn {
+    opacity: 1 !important;
+    pointer-events: auto !important;
+}
+
+.template-delete-btn:hover {
+    background: linear-gradient(135deg, #c82333 0%, #bd2130 100%) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 3px 10px rgba(220, 53, 69, 0.5) !important;
+}
+
+.template-delete-btn:active {
+    transform: scale(0.95) !important;
+}
+
+/* Center the header title and position close button in top-right */
+.template-panel-header {
+    padding: 20px !important;
+    background-color: #f0f2f5 !important;
+    border-bottom: 1px solid #e0e0e0 !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    position: relative !important;
+}
+
+.template-panel-header h3 {
+    margin: 0 !important;
+    color: #111b21 !important;
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+}
+
+.close-panel-btn {
+    position: absolute !important;
+    top: 12px !important;
+    right: 12px !important;
+    background: none !important;
+    border: none !important;
+    color: #54656f !important;
+    font-size: 1.5rem !important;
+    cursor: pointer !important;
+    padding: 8px !important;
+    line-height: 1 !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    transition: all 0.2s !important;
+}
+
+.close-panel-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    color: #111b21 !important;
+}
+
+/* Fix close button to stay inside the panel */
+.template-side-panel {
+    position: fixed !important;
+    right: 0 !important;
+    top: 0 !important;
+    bottom: 0 !important;
+    width: 400px !important;
+    background-color: #ffffff !important;
+    border-left: 1px solid #e0e0e0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    z-index: 1000 !important;
+    animation: slideInRight 0.3s ease-out !important;
+    overflow: hidden !important;
+}
+
+.close-panel-btn {
+    position: absolute !important;
+    top: 16px !important;
+    right: 16px !important;
+    background: transparent !important;
+    border: none !important;
+    color: #54656f !important;
+    font-size: 1.3rem !important;
+    cursor: pointer !important;
+    padding: 6px !important;
+    line-height: 1 !important;
+    width: 32px !important;
+    height: 32px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    transition: all 0.2s !important;
+    z-index: 10 !important;
+}
+
+.close-panel-btn:hover {
+    background-color: rgba(0, 0, 0, 0.08) !important;
+    color: #111b21 !important;
+}
+
+/* Fix attachment button alignment in chat input area */
+.chat-input-area {
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    padding: 12px 16px !important;
+    background-color: #f0f2f5 !important;
+    border-top: 1px solid #e0e0e0 !important;
+}
+
+.attachment-btn {
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    background-color: #ffffff !important;
+    border: 1px solid #d1d7db !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 1.2rem !important;
+    transition: all 0.2s !important;
+    padding: 0 !important;
+}
+
+.attachment-btn:hover {
+    background-color: #f0f2f5 !important;
+    border-color: #8696a0 !important;
+}
+
+.attachment-btn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+.chat-input-area textarea {
+    flex: 1 !important;
+    padding: 10px 12px !important;
+    border: 1px solid #d1d7db !important;
+    border-radius: 8px !important;
+    resize: none !important;
+    font-size: 0.95rem !important;
+    font-family: inherit !important;
+    min-height: 40px !important;
+    max-height: 100px !important;
+}
+
+.chat-input-area textarea:focus {
+    outline: none !important;
+    border-color: #00a884 !important;
+}
+
+.action-buttons {
+    display: flex !important;
+    gap: 8px !important;
+}
+
+.action-buttons button {
+    padding: 10px 16px !important;
+    border: none !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    font-weight: 500 !important;
+    transition: all 0.2s !important;
+}
+
+/* Input wrapper for attach button inside textarea */
+.input-wrapper {
+    position: relative !important;
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+}
+
+.input-wrapper textarea {
+    flex: 1 !important;
+    padding-right: 50px !important;
+    /* Make room for attach button */
+}
+
+.attachment-btn-inside {
+    position: absolute !important;
+    right: 10px !important;
+    top: 10px !important;
+    bottom: auto !important;
+    transform: none !important;
+    background: none !important;
+    border: none !important;
+    font-size: 1.5rem !important;
+    cursor: pointer !important;
+    padding: 8px !important;
+    color: #54656f !important;
+    transition: all 0.2s !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+}
+
+.attachment-btn-inside:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    color: #007bff !important;
+}
+
+.attachment-btn-inside:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+/* File upload button inside search bar */
+.search-bar-container {
+    position: relative !important;
+    display: flex !important;
+    align-items: center !important;
+    padding: 10px 15px !important;
+}
+
+.search-bar-container .search-input {
+    flex: 1 !important;
+    padding-right: 50px !important;
+    /* Make room for attach button */
+}
+
+.search-attach-btn {
+    position: absolute !important;
+    right: 20px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    background: none !important;
+    border: none !important;
+    font-size: 1.3rem !important;
+    cursor: pointer !important;
+    padding: 8px !important;
+    color: #54656f !important;
+    transition: all 0.2s !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+}
+
+.search-attach-btn:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    color: #007bff !important;
+}
+
+.search-attach-btn:disabled {
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
+}
+
+.dark-mode .template-list {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .template-option-btn {
+    background-color: #202c33 !important;
+    color: #e9edef !important;
+    border: 1px solid #2a3942 !important;
+}
+
+.dark-mode .template-option-btn:hover {
+    background-color: #2a3942 !important;
+    border-color: #3b4a54 !important;
+}
+
+.dark-mode .template-panel-footer {
+    background-color: #202c33 !important;
+    border-top: 1px solid #2a3942 !important;
+}
+
+.dark-mode .create-template-btn {
+    background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+    color: #111b21 !important;
+}
+
+.dark-mode .create-template-btn:hover {
+    background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+}
+
+/* Dark mode for create template form */
+.dark-mode .create-template-form {
+    background: linear-gradient(135deg, #111b21 0%, #1f2c33 100%) !important;
+}
+
+.dark-mode .form-header {
+    border-bottom: 2px solid #2a3942 !important;
+}
+
+.dark-mode .form-header h4 {
+    color: #e9edef !important;
+}
+
+.dark-mode .form-subtitle {
+    color: #8696a0 !important;
+}
+
+.dark-mode .form-group label {
+    color: #aebac1 !important;
+}
+
+.dark-mode .template-input {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+    border: 2px solid #3b4a54 !important;
+}
+
+.dark-mode .template-input::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .template-input:focus {
+    border-color: #00a884 !important;
+    box-shadow: 0 0 0 4px rgba(0, 168, 132, 0.1) !important;
+}
+
+.dark-mode .input-hint {
+    color: #8696a0 !important;
+}
+
+.dark-mode .cancel-btn {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+    border: 2px solid #3b4a54 !important;
+}
+
+.dark-mode .cancel-btn:hover {
+    background-color: #3b4a54 !important;
+    border-color: #4a5c66 !important;
+}
+
+.dark-mode .save-btn {
+    background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+    color: #111b21 !important;
+}
+
+.dark-mode .save-btn:hover {
+    background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+}
+
+/* FORCE Dark mode styles for template panel with highest specificity */
+@media (prefers-color-scheme: dark) {
+    .template-side-panel {
+        background-color: #1f2c33 !important;
+        border-left: 1px solid #2a3942 !important;
+    }
+
+    .template-panel-header {
+        background-color: #202c33 !important;
+        border-bottom: 1px solid #2a3942 !important;
+    }
+
+    .template-panel-header h3 {
+        color: #e9edef !important;
+    }
+
+    .close-panel-btn {
+        color: #8696a0 !important;
+    }
+
+    .close-panel-btn:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: #e9edef !important;
+    }
+
+    .template-list {
+        background-color: #111b21 !important;
+    }
+
+    .template-option-btn {
+        background-color: #202c33 !important;
+        color: #e9edef !important;
+        border: 1px solid #2a3942 !important;
+    }
+
+    .template-option-btn:hover {
+        background-color: #2a3942 !important;
+        border-color: #3b4a54 !important;
+    }
+
+    .template-panel-footer {
+        background-color: #202c33 !important;
+        border-top: 1px solid #2a3942 !important;
+    }
+
+    .create-template-btn {
+        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+        color: #111b21 !important;
+    }
+
+    .create-template-btn:hover {
+        background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+    }
+
+    .create-template-form {
+        background: linear-gradient(135deg, #111b21 0%, #1f2c33 100%) !important;
+    }
+
+    .form-header {
+        border-bottom: 2px solid #2a3942 !important;
+    }
+
+    .form-header h4 {
+        color: #e9edef !important;
+    }
+
+    .form-subtitle {
+        color: #8696a0 !important;
+    }
+
+    .form-group label {
+        color: #aebac1 !important;
+    }
+
+    .template-input {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+        border: 2px solid #3b4a54 !important;
+    }
+
+    .template-input::placeholder {
+        color: #667781 !important;
+    }
+
+    .template-input:focus {
+        border-color: #00a884 !important;
+        box-shadow: 0 0 0 4px rgba(0, 168, 132, 0.1) !important;
+    }
+
+    .input-hint {
+        color: #8696a0 !important;
+    }
+
+    .cancel-btn {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+        border: 2px solid #3b4a54 !important;
+    }
+
+    .cancel-btn:hover {
+        background-color: #3b4a54 !important;
+        border-color: #4a5c66 !important;
+    }
+
+    .save-btn {
+        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+        color: #111b21 !important;
+    }
+
+    .save-btn:hover {
+        background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+    }
+}
+
+/* ========================================
+   COMPLETE DARK MODE FOR ENTIRE SITE
+   ======================================== */
+
+@media (prefers-color-scheme: dark) {
+
+    /* Dashboard Container */
+    .dashboard-container {
+        background-color: #111b21 !important;
+    }
+
+    /* Sidebar */
+    .sidebar {
+        background-color: #111b21 !important;
+        border-right: 1px solid #2a3942 !important;
+    }
+
+    .sidebar-header {
+        background-color: #202c33 !important;
+        border-bottom: 1px solid #2a3942 !important;
+    }
+
+    .sidebar-header h2 {
+        color: #e9edef !important;
+    }
+
+    /* Header Buttons */
+    .icon-btn {
+        color: #aebac1 !important;
+        background-color: transparent !important;
+    }
+
+    .icon-btn:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: #e9edef !important;
+    }
+
+    .icon-btn.active {
+        background-color: #2a3942 !important;
+        color: #00a884 !important;
+    }
+
+    /* Search Bar */
+    .search-bar-container {
+        background-color: #111b21 !important;
+    }
+
+    .search-input {
+        background-color: #202c33 !important;
+        color: #e9edef !important;
+        border: 1px solid #2a3942 !important;
+    }
+
+    .search-input::placeholder {
+        color: #667781 !important;
+    }
+
+    .search-input:focus {
+        border-color: #00a884 !important;
+        background-color: #2a3942 !important;
+    }
+
+    /* Contact List */
+    .contact-list {
+        background-color: #111b21 !important;
+    }
+
+    .contact-item {
+        background-color: #111b21 !important;
+        border-bottom: 1px solid #2a3942 !important;
+    }
+
+    .contact-item:hover {
+        background-color: #202c33 !important;
+    }
+
+    .contact-item.active {
+        background-color: #2a3942 !important;
+    }
+
+    .contact-item.selected {
+        background-color: #1d3a2f !important;
+    }
+
+    .contact-avatar {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+    }
+
+    .contact-name {
+        color: #e9edef !important;
+    }
+
+    .contact-time {
+        color: #8696a0 !important;
+    }
+
+    .contact-time.unread {
+        color: #00a884 !important;
+    }
+
+    .contact-message-preview {
+        color: #8696a0 !important;
+    }
+
+    .unread-badge {
+        background-color: #00a884 !important;
+        color: #111b21 !important;
+    }
+
+    /* Contact Checkbox */
+    .contact-checkbox {
+        border: 2px solid #8696a0 !important;
+        background-color: transparent !important;
+    }
+
+    .contact-checkbox.checked {
+        background-color: #00a884 !important;
+        border-color: #00a884 !important;
+        color: #111b21 !important;
+    }
+
+    /* Bulk Action Bar */
+    .bulk-action-bar {
+        background-color: #1d3a2f !important;
+        border-bottom: 1px solid #2a3942 !important;
+    }
+
+    .bulk-action-bar button {
+        background-color: #00a884 !important;
+        color: #111b21 !important;
+    }
+
+    .bulk-action-bar button:hover {
+        background-color: #008f6d !important;
+    }
+
+    /* Chat Window */
+    .chat-window {
+        background-color: #0b141a !important;
+    }
+
+    .chat-header {
+        background-color: #202c33 !important;
+        border-bottom: 1px solid #2a3942 !important;
+    }
+
+    .chat-header-avatar {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+    }
+
+    .chat-header-info h3 {
+        color: #e9edef !important;
+    }
+
+    .chat-header-info span {
+        color: #8696a0 !important;
+    }
+
+    /* Message List */
+    .message-list {
+        background-color: #0b141a !important;
+    }
+
+    .no-messages {
+        color: #8696a0 !important;
+    }
+
+    /* Message Items */
+    .message-item.sent {
+        background-color: #005c4b !important;
+    }
+
+    .message-item.received {
+        background-color: #202c33 !important;
+    }
+
+    .message-text {
+        color: #e9edef !important;
+    }
+
+    .message-time {
+        color: #8696a0 !important;
+    }
+
+    /* Chat Input Area */
+    .chat-input-area {
+        background-color: #202c33 !important;
+        border-top: 1px solid #2a3942 !important;
+    }
+
+    .input-wrapper textarea {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+        border: 1px solid #3b4a54 !important;
+    }
+
+    .input-wrapper textarea::placeholder {
+        color: #667781 !important;
+    }
+
+    .input-wrapper textarea:focus {
+        border-color: #00a884 !important;
+        background-color: #2a3942 !important;
+    }
+
+    .attachment-btn-inside {
+        position: absolute !important;
+        right: 10px !important;
+        top: 10px !important;
+        bottom: auto !important;
+        transform: none !important;
+        background: none !important;
+        border: none !important;
+        font-size: 1.5rem !important;
+        cursor: pointer !important;
+        padding: 8px !important;
+        color: #54656f !important;
+        transition: all 0.2s !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        border-radius: 50% !important;
+        width: 36px !important;
+        height: 36px !important;
+    }
+
+    .attachment-btn-inside:hover {
+        color: #00a884 !important;
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    /* Action Buttons */
+    .action-buttons button {
+        background-color: #00a884 !important;
+        color: #111b21 !important;
+        border: none !important;
+    }
+
+    .action-buttons button:hover {
+        background-color: #008f6d !important;
+    }
+
+    .action-buttons button:disabled {
+        background-color: #2a3942 !important;
+        color: #667781 !important;
+    }
+
+    .template-btn {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+    }
+
+    .template-btn:hover {
+        background-color: #3b4a54 !important;
+    }
+
+    /* Welcome Screen */
+    .welcome-screen {
+        background-color: #0b141a !important;
+        color: #e9edef !important;
+    }
+
+    .welcome-screen h2 {
+        color: #e9edef !important;
+    }
+
+    .welcome-screen p {
+        color: #8696a0 !important;
+    }
+
+    /* New Chat Modal */
+    .new-chat-modal {
+        margin: 10px 15px;
+        padding: 10px;
+        background-color: var(--surface-white);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        animation: slideDown 0.2s ease-out;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+
+    .new-chat-modal input {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+        border: 1px solid #3b4a54 !important;
+    }
+
+    .new-chat-modal input::placeholder {
+        color: #667781 !important;
+    }
+
+    .new-chat-modal button {
+        background-color: #00a884 !important;
+        color: #111b21 !important;
+    }
+
+    .new-chat-modal .close-btn {
+        background: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+        color: var(--text-secondary) !important;
+        padding: 4px 8px !important;
+        font-size: 1.4rem !important;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 4px;
+    }
+
+    /* Bulk Modal */
+    .bulk-modal-overlay {
+        background-color: rgba(0, 0, 0, 0.7) !important;
+    }
+
+    .bulk-modal {
+        background-color: #202c33 !important;
+        border: 1px solid #2a3942 !important;
+    }
+
+    .bulk-modal h3 {
+        color: #e9edef !important;
+    }
+
+    .bulk-modal textarea {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+        border: 1px solid #3b4a54 !important;
+    }
+
+    .bulk-modal textarea::placeholder {
+        color: #667781 !important;
+    }
+
+    .bulk-modal .cancel-btn {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+    }
+
+    .bulk-modal .send-btn {
+        background-color: #00a884 !important;
+        color: #111b21 !important;
+    }
+
+    /* Upload Button in Search */
+    .upload-btn-inside-search {
+        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+    }
+
+    .upload-btn-inside-search:hover {
+        background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+    }
+
+    .upload-btn-inside-search svg {
+        color: #111b21 !important;
+    }
+
+    /* No Contacts */
+    .no-contacts {
+        color: #8696a0 !important;
+    }
+
+    /* Document Links */
+    .document-link {
+        color: #00a884 !important;
+    }
+
+    .document-link:hover {
+        color: #008f6d !important;
+    }
+}
+
+/* ULTRA HIGH PRIORITY - Dark Mode for Create Template Form */
+@media (prefers-color-scheme: dark) {
+
+    /* Create Template Form - Override all backgrounds */
+    div.create-template-form {
+        background: #111b21 !important;
+        background-image: none !important;
+    }
+
+    /* Form Header */
+    div.form-header {
+        border-bottom-color: #2a3942 !important;
+    }
+
+    div.form-header h4 {
+        color: #e9edef !important;
+    }
+
+    p.form-subtitle {
+        color: #8696a0 !important;
+    }
+
+    /* Form Icon */
+    div.form-icon {
+        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+        color: #111b21 !important;
+    }
+
+    div.form-icon svg {
+        color: #111b21 !important;
+        stroke: #111b21 !important;
+    }
+
+    /* Form Groups */
+    div.form-group label {
+        color: #aebac1 !important;
+    }
+
+    /* Template Inputs */
+    input.template-input {
+        background-color: #2a3942 !important;
+        color: #e9edef !important;
+        border-color: #3b4a54 !important;
+    }
+
+    input.template-input::placeholder {
+        color: #667781 !important;
+    }
+
+    input.template-input:focus {
+        background-color: #2a3942 !important;
+        border-color: #00a884 !important;
+        box-shadow: 0 0 0 4px rgba(0, 168, 132, 0.1) !important;
+    }
+
+    /* Input Hints */
+    span.input-hint {
+        color: #8696a0 !important;
+    }
+
+    /* Form Actions */
+    div.template-form-actions {
+        background: transparent !important;
+    }
+
+    /* Cancel Button */
+    button.cancel-btn,
+    div.template-form-actions .cancel-btn {
+        background-color: #2a3942 !important;
+        background-image: none !important;
+        color: #e9edef !important;
+        border-color: #3b4a54 !important;
+    }
+
+    button.cancel-btn:hover,
+    div.template-form-actions .cancel-btn:hover {
+        background-color: #3b4a54 !important;
+        background-image: none !important;
+        border-color: #4a5c66 !important;
+    }
+
+    /* Save/Create Button */
+    button.save-btn,
+    div.template-form-actions .save-btn {
+        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+        color: #111b21 !important;
+    }
+
+    button.save-btn:hover,
+    div.template-form-actions .save-btn:hover {
+        background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+    }
+
+    button.save-btn svg,
+    div.template-form-actions .save-btn svg {
+        color: #111b21 !important;
+        stroke: #111b21 !important;
+    }
+
+    /* Template Panel Header - Create New Template */
+    .template-side-panel .template-panel-header {
+        background-color: #202c33 !important;
+    }
+
+    .template-side-panel .template-panel-header h3 {
+        color: #e9edef !important;
+    }
+}
+
+/* Fix white backgrounds in dark mode */
+@media (prefers-color-scheme: dark) {
+
+    /* Remove any white backgrounds */
+    * {
+        scrollbar-color: #374045 #202c33 !important;
+    }
+
+    /* Chat input container wrapper */
+    .chat-input-area,
+    .chat-input-area>*,
+    .input-wrapper {
+        background-color: #202c33 !important;
+    }
+
+    /* Main chat window wrapper */
+    .chat-window,
+    .chat-window>* {
+        background-color: #0b141a !important;
+    }
+
+    /* Any remaining white backgrounds */
+    div[style*="background: white"],
+    div[style*="background-color: white"],
+    div[style*="background: #fff"],
+    div[style*="background-color: #fff"] {
+        background-color: #202c33 !important;
+    }
+
+    /* Input wrapper and containers */
+    .input-wrapper,
+    .input-wrapper>div {
+        background-color: transparent !important;
+    }
+
+    /* Textarea container */
+    .input-wrapper textarea {
+        background-color: #2a3942 !important;
+    }
+
+    /* Action buttons container */
+    .action-buttons {
+        background-color: transparent !important;
+    }
+
+    /* Send and Template buttons */
+    .action-buttons button {
+        background-color: #00a884 !important;
+    }
+
+    .action-buttons .template-btn {
+        background-color: #2a3942 !important;
+    }
+
+    /* Message input area bottom section */
+    .chat-input-area::before,
+    .chat-input-area::after {
+        display: none !important;
+    }
+
+    /* Fix any white containers */
+    .dashboard-container,
+    .dashboard-container>*,
+    .sidebar,
+    .chat-window {
+        background-color: #111b21 !important;
+    }
+
+    /* Ensure chat window background */
+    .chat-window {
+        background-color: #0b141a !important;
+    }
+
+    /* Message list background */
+    .message-list {
+        background-color: #0b141a !important;
+    }
+}
+
+/* ========================================
+   WORKING DARK MODE - Using .dark-mode class
+   ======================================== */
+
+/* Dashboard Container */
+.dark-mode {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .sidebar {
+    background-color: #111b21 !important;
+    border-right: 1px solid #2a3942 !important;
+}
+
+.dark-mode .sidebar-header {
+    background-color: #202c33 !important;
+    border-bottom: 1px solid #2a3942 !important;
+}
+
+.dark-mode .sidebar-header h2 {
+    color: #e9edef !important;
+}
+
+/* Header Buttons */
+.dark-mode .icon-btn {
+    color: #aebac1 !important;
+}
+
+.dark-mode .icon-btn:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #e9edef !important;
+}
+
+/* Search Bar */
+.dark-mode .search-bar-container {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .search-input {
+    background-color: #202c33 !important;
+    color: #e9edef !important;
+    border: 1px solid #2a3942 !important;
+}
+
+.dark-mode .search-input::placeholder {
+    color: #667781 !important;
+}
+
+/* Contact List */
+.dark-mode .contact-list {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .contact-item {
+    background-color: #111b21 !important;
+    border-bottom: 1px solid #2a3942 !important;
+}
+
+.dark-mode .contact-item:hover {
+    background-color: #202c33 !important;
+}
+
+.dark-mode .contact-item.active {
+    background-color: #2a3942 !important;
+}
+
+.dark-mode .contact-avatar {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+}
+
+.dark-mode .contact-name {
+    color: #e9edef !important;
+}
+
+.dark-mode .contact-time {
+    color: #8696a0 !important;
+}
+
+.dark-mode .contact-message-preview {
+    color: #8696a0 !important;
+}
+
+/* Chat Window */
+.dark-mode .chat-window {
+    background-color: #0b141a !important;
+}
+
+.dark-mode .chat-header {
+    background-color: #202c33 !important;
+    border-bottom: 1px solid #2a3942 !important;
+}
+
+.dark-mode .chat-header-avatar {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+}
+
+.dark-mode .chat-header-info h3 {
+    color: #e9edef !important;
+}
+
+.dark-mode .chat-header-info span {
+    color: #8696a0 !important;
+}
+
+/* Message List */
+.dark-mode .message-list {
+    background-color: #0b141a !important;
+}
+
+.dark-mode .message-item.sent {
+    background-color: #005c4b !important;
+}
+
+.dark-mode .message-item.received {
+    background-color: #202c33 !important;
+}
+
+.dark-mode .message-text {
+    color: #e9edef !important;
+}
+
+.dark-mode .message-time {
+    color: #8696a0 !important;
+}
+
+/* Chat Input Area - FIX WHITE BACKGROUND */
+.dark-mode .chat-input-area {
+    background-color: #202c33 !important;
+    border-top: 1px solid #2a3942 !important;
+}
+
+.dark-mode .input-wrapper {
+    background-color: transparent !important;
+}
+
+.dark-mode .input-wrapper textarea {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+    border: 1px solid #3b4a54 !important;
+}
+
+.dark-mode .input-wrapper textarea::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .attachment-btn-inside {
+    position: absolute !important;
+    right: 10px !important;
+    top: 10px !important;
+    bottom: auto !important;
+    transform: none !important;
+    background: none !important;
+    border: none !important;
+    font-size: 1.5rem !important;
+    cursor: pointer !important;
+    padding: 8px !important;
+    color: #54656f !important;
+    transition: all 0.2s !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    width: 36px !important;
+    height: 36px !important;
+}
+
+.dark-mode .attachment-btn-inside:hover {
+    color: #00a884 !important;
+}
+
+/* Action Buttons */
+.dark-mode .action-buttons {
+    background-color: transparent !important;
+}
+
+.dark-mode .action-buttons button {
+    background-color: #00a884 !important;
+    color: #111b21 !important;
+}
+
+.dark-mode .template-btn {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+}
+
+/* Template Panel */
+.dark-mode .template-side-panel {
+    background-color: #1f2c33 !important;
+    border-left: 1px solid #2a3942 !important;
+}
+
+.dark-mode .template-panel-header {
+    background-color: #202c33 !important;
+    border-bottom: 1px solid #2a3942 !important;
+}
+
+.dark-mode .template-panel-header h3 {
+    color: #e9edef !important;
+}
+
+.dark-mode .close-panel-btn {
+    color: #8696a0 !important;
+}
+
+.dark-mode .close-panel-btn:hover {
+    background-color: rgba(255, 255, 255, 0.05) !important;
+    color: #e9edef !important;
+}
+
+.dark-mode .template-list {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .template-option-btn {
+    background-color: #202c33 !important;
+    color: #e9edef !important;
+    border: 1px solid #2a3942 !important;
+}
+
+.dark-mode .template-option-btn:hover {
+    background-color: #2a3942 !important;
+}
+
+/* Create Template Form */
+.dark-mode .create-template-form {
+    background: #111b21 !important;
+    background-image: none !important;
+}
+
+.dark-mode .form-header h4 {
+    color: #e9edef !important;
+}
+
+.dark-mode .form-subtitle {
+    color: #8696a0 !important;
+}
+
+.dark-mode .form-group label {
+    color: #aebac1 !important;
+}
+
+.dark-mode .template-input {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+    border: 2px solid #3b4a54 !important;
+}
+
+.dark-mode .template-input::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .input-hint {
+    color: #8696a0 !important;
+}
+
+.dark-mode .cancel-btn {
+    background-color: #2a3942 !important;
+    background-image: none !important;
+    color: #e9edef !important;
+    border: 2px solid #3b4a54 !important;
+}
+
+.dark-mode .save-btn {
+    background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+    color: #111b21 !important;
+}
+
+/* New Chat Modal */
+.dark-mode .new-chat-modal {
+    margin: 10px 15px;
+    padding: 10px;
+    background-color: var(--surface-white);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    animation: slideDown 0.2s ease-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.dark-mode .new-chat-modal input {
+    background-color: #2a3942 !important;
+    color: #e9edef !important;
+    border: 1px solid #3b4a54 !important;
+}
+
+.dark-mode .new-chat-modal button {
+    background-color: #00a884 !important;
+    color: #111b21 !important;
+}
+
+/* Upload Button */
+.dark-mode .upload-btn-inside-search {
+    background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
+}
+
+.dark-mode .upload-btn-inside-search svg {
+    color: #111b21 !important;
+}
+
+/* Welcome Screen */
+.dark-mode .welcome-screen {
+    background-color: #0b141a !important;
+    color: #e9edef !important;
+}
+
+.dark-mode .welcome-screen h2 {
+    color: #e9edef !important;
+}
+
+.dark-mode .welcome-screen p {
+    color: #8696a0 !important;
+}
+
+/* Change all green buttons to BLUE in dark mode */
+.dark-mode .action-buttons button {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .action-buttons button:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .bulk-action-bar button {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .bulk-action-bar button:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .upload-btn-inside-search {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+}
+
+.dark-mode .upload-btn-inside-search:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .upload-btn-inside-search svg {
+    color: white !important;
+    stroke: white !important;
+}
+
+.dark-mode .save-btn {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .save-btn:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .save-btn svg {
+    color: white !important;
+    stroke: white !important;
+}
+
+.dark-mode .create-template-btn {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .create-template-btn:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .new-chat-modal button {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .new-chat-modal button:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .bulk-modal .send-btn {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .bulk-modal .send-btn:hover {
+    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+}
+
+.dark-mode .form-icon {
+    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    color: white !important;
+}
+
+.dark-mode .form-icon svg {
+    color: white !important;
+    stroke: white !important;
+}
+
+/* Blue focus states */
+.dark-mode .search-input:focus {
+    border-color: #0084ff !important;
+}
+
+.dark-mode .input-wrapper textarea:focus {
+    border-color: #0084ff !important;
+}
+
+.dark-mode .template-input:focus {
+    border-color: #0084ff !important;
+    box-shadow: 0 0 0 4px rgba(0, 132, 255, 0.1) !important;
+}
+
+.dark-mode .attachment-btn-inside:hover {
+    color: #0084ff !important;
+}
+
+/* Blue unread badge and time */
+.dark-mode .contact-time.unread {
+    color: #0084ff !important;
+}
+
+.dark-mode .unread-badge {
+    background-color: #0084ff !important;
+    color: white !important;
+}
+
+/* Blue document links */
+.dark-mode .document-link {
+    color: #0084ff !important;
+}
+
+.dark-mode .document-link:hover {
+    color: #0066cc !important;
+}
+
+/* Fix text visibility in bulk modal textarea - WHITE TEXT */
+.dark-mode .bulk-modal textarea {
+    background-color: #2a3942 !important;
+    color: #ffffff !important;
+    border: 1px solid #3b4a54 !important;
+}
+
+.dark-mode .bulk-modal textarea::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .bulk-modal textarea:focus {
+    border-color: #0084ff !important;
+    color: #ffffff !important;
+}
+
+/* Also fix main chat input textarea - WHITE TEXT */
+.dark-mode .input-wrapper textarea {
+    background-color: #2a3942 !important;
+    color: #ffffff !important;
+    border: 1px solid #3b4a54 !important;
+}
+
+.dark-mode .input-wrapper textarea::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .input-wrapper textarea:focus {
+    border-color: #0084ff !important;
+    color: #ffffff !important;
+}
+
+/* Fix new chat modal input - WHITE TEXT */
+.dark-mode .new-chat-modal input {
+    background-color: #2a3942 !important;
+    color: #ffffff !important;
+    border: 1px solid #3b4a54 !important;
+}
+
+.dark-mode .new-chat-modal input::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .new-chat-modal input:focus {
+    border-color: #0084ff !important;
+    color: #ffffff !important;
+}
+
+/* Fix template inputs - WHITE TEXT */
+.dark-mode .template-input {
+    background-color: #2a3942 !important;
+    color: #ffffff !important;
+    border: 2px solid #3b4a54 !important;
+}
+
+.dark-mode .template-input::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .template-input:focus {
+    border-color: #0084ff !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 0 4px rgba(0, 132, 255, 0.1) !important;
+}
+
+/* Fix search input - WHITE TEXT */
+.dark-mode .search-input {
+    background-color: #202c33 !important;
+    color: #ffffff !important;
+    border: 1px solid #2a3942 !important;
+}
+
+.dark-mode .search-input::placeholder {
+    color: #667781 !important;
+}
+
+.dark-mode .search-input:focus {
+    border-color: #0084ff !important;
+    background-color: #2a3942 !important;
+    color: #ffffff !important;
+}
+
+/* ========================================
+   PREMIUM UI POLISH - SILICON VALLEY STYLE
+   Zero HTML/Logic Changes - Pure Visual Enhancement
+   ======================================== */
+
+/* ========================================
+   1. TYPOGRAPHY SYSTEM
+   ======================================== */
+
+/* Import Modern Font Family */
+/* Import Modern Font Family moved to top */
+
+* {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
+}
+
+/* Typography Scale */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.02em;
+}
+
+body,
+input,
+textarea,
+button {
+    font-size: 14px;
+    line-height: 1.6;
+    font-weight: 400;
+}
+
+/* ========================================
+   2. SOPHISTICATED COLOR PALETTE
+   ======================================== */
+
+:root {
+    /* Light Mode - Refined Palette */
+    --color-bg-primary: #FAFBFC;
+    --color-bg-secondary: #FFFFFF;
+    --color-bg-tertiary: #F6F8FA;
+    --color-border: #E1E4E8;
+    --color-border-hover: #D1D5DA;
+    --color-text-primary: #24292E;
+    --color-text-secondary: #586069;
+    --color-text-tertiary: #6A737D;
+    --color-accent: #0366D6;
+    --color-accent-hover: #0256C2;
+    --color-success: #28A745;
+    --color-danger: #D73A49;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.05), 0 2px 4px rgba(0, 0, 0, 0.03);
+    --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.06), 0 4px 6px rgba(0, 0, 0, 0.04);
+    --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.08), 0 10px 10px rgba(0, 0, 0, 0.04);
+
+    /* Border Radius */
+    --radius-sm: 6px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+
+    /* Spacing */
+    --space-xs: 4px;
+    --space-sm: 8px;
+    --space-md: 16px;
+    --space-lg: 24px;
+    --space-xl: 32px;
+}
+
+/* ========================================
+   3. DASHBOARD CONTAINER
+   ======================================== */
+
+.dashboard-container {
+    background: var(--color-bg-primary);
+    transition: background-color 0.3s ease;
+}
+
+/* ========================================
+   4. SIDEBAR REFINEMENT
+   ======================================== */
+
+.sidebar {
+    background: var(--color-bg-secondary);
+    border-right: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+}
+
+.sidebar-header {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-lg) var(--space-md);
+}
+
+.sidebar-header h2 {
+    color: var(--color-text-primary);
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin: 0;
+}
+
+/* Header Action Buttons */
+.header-actions {
+    gap: var(--space-xs);
+}
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    transform: translateY(-1px);
+}
+
+.icon-btn:active {
+    transform: translateY(0);
+}
+
+.icon-btn.active {
+    background: var(--color-accent);
+    color: white;
+}
+
+/* ========================================
+   5. SEARCH BAR POLISH
+   ======================================== */
+
+.search-bar-container {
+    padding: var(--space-sm) var(--space-md);
+    background: var(--color-bg-secondary);
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px 50px 10px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: var(--color-bg-secondary);
+    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+.search-input::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+/* Upload Button Inside Search */
+.upload-btn-inside-search {
+    background: var(--color-accent);
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.upload-btn-inside-search:hover {
+    background: var(--color-accent-hover);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px) scale(1.02);
+}
+
+/* ========================================
+   6. CONTACT LIST REFINEMENT
+   ======================================== */
+
+.contact-list {
+    background: var(--color-bg-secondary);
+}
+
+.contact-item {
+    padding: var(--space-md);
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-secondary);
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.contact-item:hover {
+    background: var(--color-bg-tertiary);
+}
+
+.contact-item.active {
+    background: linear-gradient(to right, rgba(3, 102, 214, 0.08), rgba(3, 102, 214, 0.04));
+    border-left: 3px solid var(--color-accent);
+}
+
+.contact-avatar {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+    color: white;
+    font-weight: 600;
+    font-size: 18px;
+    box-shadow: var(--shadow-sm);
+}
+
+.contact-name {
+    color: var(--color-text-primary);
+    font-weight: 500;
+    font-size: 15px;
+}
+
+.contact-time {
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.contact-message-preview {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+.unread-badge {
+    background: var(--color-accent);
+    color: white;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    box-shadow: var(--shadow-sm);
+}
+
+/* ========================================
+   7. CHAT WINDOW POLISH
+   ======================================== */
+
+.chat-window {
+    background: var(--color-bg-primary);
+}
+
+.chat-header {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-md) var(--space-lg);
+    box-shadow: var(--shadow-sm);
+}
+
+.chat-header-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+    color: white;
+    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+}
+
+.chat-header-info h3 {
+    color: var(--color-text-primary);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.chat-header-info span {
+    color: var(--color-text-secondary);
+    font-size: 13px;
+}
+
+/* ========================================
+   8. MESSAGE BUBBLES
+   ======================================== */
+
+.message-list {
+    background: var(--color-bg-primary);
+    padding: var(--space-lg);
+}
+
+.message-item {
+    margin-bottom: var(--space-md);
+    padding: 10px 14px;
+    border-radius: var(--radius-lg);
+    max-width: 65%;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.2s ease;
+}
+
+.message-item:hover {
+    box-shadow: var(--shadow-md);
+}
+
+.message-item.sent {
+    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+    color: white;
+    margin-left: auto;
+}
+
+.message-item.received {
+    background: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+}
+
+.message-text {
+    font-size: 14px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+.message-time {
+    font-size: 11px;
+    opacity: 0.7;
+    margin-top: 4px;
+}
+
+/* ========================================
+   9. CHAT INPUT AREA
+   ======================================== */
+
+.chat-input-area {
+    background: var(--color-bg-secondary);
+    border-top: 1px solid var(--color-border);
+    padding: var(--space-md) var(--space-lg);
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.02);
+}
+
+.input-wrapper textarea {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    padding: 12px 50px 12px 14px;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: none;
+    transition: all 0.2s ease;
+}
+
+.input-wrapper textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: var(--color-bg-secondary);
+    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+.input-wrapper textarea::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+/* ========================================
+   10. BUTTONS - PREMIUM STYLE
+   ======================================== */
+
+.action-buttons button {
+    padding: 10px 20px;
+    border-radius: var(--radius-md);
+    font-weight: 500;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--shadow-sm);
+}
+
+.action-buttons button:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-1px);
+}
+
+.action-buttons button:active {
+    transform: translateY(0);
+}
+
+button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+}
+
+.template-btn {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+}
+
+.template-btn:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-border-hover);
+}
+
+/* ========================================
+   11. TEMPLATE PANEL
+   ======================================== */
+
+.template-side-panel {
+    background: var(--color-bg-secondary);
+    border-left: 1px solid var(--color-border);
+    box-shadow: var(--shadow-xl);
+}
+
+.template-panel-header {
+    background: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border);
+    padding: var(--space-lg);
+}
+
+.template-panel-header h3 {
+    color: var(--color-text-primary);
+    font-size: 18px;
+    font-weight: 600;
+    margin: 0;
+}
+
+.close-panel-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-md);
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.close-panel-btn:hover {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+}
+
+.template-option-btn {
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-primary);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.template-option-btn:hover {
+    background: var(--color-bg-secondary);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-sm);
+    transform: translateY(-1px);
+}
+
+/* ========================================
+   12. MODALS & OVERLAYS
+   ======================================== */
+
+.bulk-modal-overlay {
+    background: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+}
+
+.bulk-modal,
+.new-chat-modal {
+    margin: 10px 15px;
+    padding: 10px;
+    background-color: var(--surface-white);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    animation: slideDown 0.2s ease-out;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.bulk-modal h3 {
+    color: var(--color-text-primary);
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.bulk-modal textarea {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    padding: 12px;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.bulk-modal textarea:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: var(--color-bg-secondary);
+    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+/* ========================================
+   13. FORM INPUTS - TEMPLATE CREATION
+   ======================================== */
+
+.template-input {
+    padding: 12px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.template-input:focus {
+    outline: none;
+    border-color: var(--color-accent);
+    background: var(--color-bg-secondary);
+    box-shadow: 0 0 0 3px rgba(3, 102, 214, 0.1);
+}
+
+.template-input::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+.input-hint {
+    color: var(--color-text-tertiary);
+    font-size: 12px;
+    margin-top: 4px;
+}
+
+/* ========================================
+   14. MICRO-INTERACTIONS
+   ======================================== */
+
+/* Smooth transitions for all interactive elements */
+a,
+button,
+input,
+textarea,
+select {
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Hover lift effect for cards */
+.contact-item,
+.template-option-btn,
+.message-item {
+    will-change: transform;
+}
+
+/* Focus visible for accessibility */
+*:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+}
+
+/* ========================================
+   15. SCROLLBAR STYLING
+   ======================================== */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--color-bg-tertiary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--color-border-hover);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-tertiary);
+}
+
+/* ========================================
+   16. WELCOME SCREEN
+   ======================================== */
+
+.welcome-screen {
+    background: var(--color-bg-primary);
+}
+
+.welcome-screen h2 {
+    color: var(--color-text-primary);
+    font-size: 24px;
+    font-weight: 600;
+}
+
+.welcome-screen p {
+    color: var(--color-text-secondary);
+    font-size: 15px;
+}
+
+/* ========================================
+   17. RESPONSIVE REFINEMENTS
+   ======================================== */
+
+@media (max-width: 768px) {
+    :root {
+        --space-md: 12px;
+        --space-lg: 16px;
+    }
+
+    .sidebar-header h2 {
+        font-size: 18px;
+    }
+
+    .message-item {
+        max-width: 80%;
+    }
+}
+
+/* ========================================
+   END OF PREMIUM UI POLISH
+   ======================================== */
+/* Upload button inside search box - Minimalist Design */
+.search-bar-container {
+    position: relative !important;
+    padding: 10px !important;
+}
+
+.upload-btn-inside-search {
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    width: 20px !important;
+    height: 20px !important;
+    background: transparent !important;
+    color: #6A737D !important;
+    border: none !important;
+    border-radius: 0 !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: color 0.2s ease !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
+
+.upload-btn-inside-search:hover {
+    background: transparent !important;
+    color: #24292E !important;
+    transform: translateY(-50%) !important;
+    box-shadow: none !important;
+}
+
+.upload-btn-inside-search svg {
+    width: 20px !important;
+    height: 20px !important;
+    color: inherit !important;
+}
+
+.search-input {
+    padding-right: 40px !important;
+}
+
+/* Dark mode for minimalist upload button */
+.dark-mode .upload-btn-inside-search {
+    color: #8696a0 !important;
+}
+
+.dark-mode .upload-btn-inside-search:hover {
+    color: #e9edef !important;
+}
+
+/* FORCE DARK MODE */
+.dark-mode,
+.dark-mode .dashboard-container {
+    background-color: #0b141a !important;
+    color: white !important;
+}
+
+.dark-mode .sidebar {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .chat-window {
+    background-color: #0b141a !important;
+}
+
+/* AI Assist Button - Force Blue */
+.ai-assist-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    /* Blue Gradient */
+    background-color: #3b82f6 !important;
+    /* Fallback */
+    color: white !important;
+    border: none !important;
+    border-radius: 20px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3) !important;
+}
+
+.ai-assist-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4) !important;
+}
+
+.ai-assist-btn svg {
+    font-size: 1rem !important;
+}
+
+/* Media Wrapper for Download Button */
+.media-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.download-link {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 5px 8px;
+    border-radius: 50%;
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.download-link:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+
+/* Media Download Styles */
+.message-media-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+.media-download-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 8px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: 0.9rem;
+    z-index: 10;
+}
+
+.media-download-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: scale(1.05);
+}
+
+/* Document Preview Styles */
+.document-preview {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-width: 200px;
+}
+
+.doc-icon {
+    font-size: 1.5rem;
+    margin-right: 10px;
+}
+
+.doc-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* Adjust download button position for documents */
+.message-media-container:has(.document-preview) .media-download-btn {
+    position: static;
+    margin-left: 10px;
+    background-color: var(--primary-blue);
+    border: none;
+    width: 36px;
+    height: 36px;
+}
+
+.message-media-container:has(.document-preview) {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 4px;
+    border-radius: 10px;
+}
+
+/* Contact List Layout Updates */
+.contact-header,
+.contact-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.contact-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+}
+
+.contact-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.contact-time.unread {
+    color: var(--primary-green);
+    font-weight: 600;
+}
+
+.contact-message-preview {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.upload-btn-inside-search svg {
+    width: 20px !important;
+    height: 20px !important;
+    color: inherit !important;
+}
+
+.search-input {
+    padding-right: 40px !important;
+}
+
+/* Dark mode for minimalist upload button */
+.dark-mode .upload-btn-inside-search {
+    color: #8696a0 !important;
+}
+
+.dark-mode .upload-btn-inside-search:hover {
+    color: #e9edef !important;
+}
+
+/* FORCE DARK MODE */
+.dark-mode,
+.dark-mode .dashboard-container {
+    background-color: #0b141a !important;
+    color: white !important;
+}
+
+.dark-mode .sidebar {
+    background-color: #111b21 !important;
+}
+
+.dark-mode .chat-window {
+    background-color: #0b141a !important;
+}
+
+/* AI Assist Button - Force Blue */
+.ai-assist-btn {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
+    /* Blue Gradient */
+    background-color: #3b82f6 !important;
+    /* Fallback */
+    color: white !important;
+    border: none !important;
+    border-radius: 20px !important;
+    font-size: 0.9rem !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
+    transition: all 0.2s !important;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3) !important;
+}
+
+.ai-assist-btn:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4) !important;
+}
+
+.ai-assist-btn svg {
+    font-size: 1rem !important;
+}
+
+/* Media Wrapper for Download Button */
+.media-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.download-link {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    padding: 5px 8px;
+    border-radius: 50%;
+    text-decoration: none;
+    font-size: 1.2rem;
+    transition: background 0.2s;
+    z-index: 10;
+}
+
+.download-link:hover {
+    background: rgba(0, 0, 0, 0.8);
+}
+
+
+/* Media Download Styles */
+.message-media-container {
+    position: relative;
+    display: inline-block;
+    max-width: 100%;
+}
+
+.media-download-btn {
+    position: absolute;
+    bottom: 12px;
+    right: 8px;
+    background-color: rgba(0, 0, 0, 0.6);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-size: 0.9rem;
+    z-index: 10;
+}
+
+.media-download-btn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+    transform: scale(1.05);
+}
+
+/* Document Preview Styles */
+.document-preview {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    min-width: 200px;
+}
+
+.doc-icon {
+    font-size: 1.5rem;
+    margin-right: 10px;
+}
+
+.doc-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    font-size: 0.9rem;
+}
+
+/* Adjust download button position for documents */
+.message-media-container:has(.document-preview) .media-download-btn {
+    position: static;
+    margin-left: 10px;
+    background-color: var(--primary-blue);
+    border: none;
+    width: 36px;
+    height: 36px;
+}
+
+.message-media-container:has(.document-preview) {
+    display: flex;
+    align-items: center;
+    background: white;
+    padding: 4px;
+    border-radius: 10px;
+}
+
+/* Contact List Layout Updates */
+.contact-header,
+.contact-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.contact-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+}
+
+.contact-time {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.contact-time.unread {
+    color: var(--primary-green);
+    font-weight: 600;
+}
+
+.contact-message-preview {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-right: 8px;
+}
+
+.unread-badge {
+    background-color: var(--primary-blue);
+    /* Blue */
+    color: white;
+    font-size: 0.75rem;
+    font-weight: bold;
+    min-width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}

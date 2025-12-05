@@ -1,0 +1,6 @@
+version: "2"
+authtoken: 36EetLnemILdOPuDM9g41lqX2X2_6zUBPZUiVr77BMEw1zZac
+tunnels:
+  whatsapp-server:
+    proto: http
+    addr: 3000
