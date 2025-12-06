@@ -436,7 +436,14 @@ passport.deserializeUser(async (id, done) => {
         }
 
         const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
-        done(null, result.rows[0]);
+        const user = result.rows[0];
+
+        if (!user) {
+            console.warn(`[Deserialize] User ID ${id} not found in DB. Logging out.`);
+            return done(null, false);
+        }
+
+        done(null, user);
     } catch (err) {
         console.error('Deserialize Error:', err);
         done(err, null);
