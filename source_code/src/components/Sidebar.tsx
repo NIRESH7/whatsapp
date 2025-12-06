@@ -78,21 +78,21 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
-      className={`glass-panel-strong h-screen sticky top-0 transition-all duration-300 ease-in-out ${collapsed ? 'w-20' : 'w-64'
-        } flex flex-col`}
+      className={`bg-surface-dark h-screen sticky top-0 transition-all duration-300 ease-in-out border-r border-gray-800 ${collapsed ? 'w-20' : 'w-64'
+        } flex flex-col shadow-xl z-50`}
     >
       {/* Header */}
-      <div className="p-6 border-b border-gray-200/50 dark:border-gray-700/50">
+      <div className="p-6 border-b border-gray-800">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-secondary">
-            <Zap className="w-6 h-6 text-white" />
+          <div className="p-2 rounded-xl bg-primary/20">
+            <Zap className="w-6 h-6 text-primary" />
           </div>
           {!collapsed && (
             <div className="flex-1">
-              <h1 className="text-xl font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <h1 className="text-xl font-bold text-white tracking-tight">
                 NeuralConnect
               </h1>
-              <p className="text-xs text-gray-500 dark:text-gray-400">WhatsApp Suite</p>
+              <p className="text-xs text-gray-500">WhatsApp Suite</p>
             </div>
           )}
         </div>
@@ -105,22 +105,22 @@ const Sidebar: React.FC = () => {
             key={item.route}
             to={item.route}
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 group ${isActive
-                ? 'bg-gradient-to-r from-primary/20 to-secondary/20 text-primary dark:text-primary-light shadow-neon'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                ? 'bg-primary text-white shadow-soft'
+                : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
               }`
             }
           >
             {({ isActive }) => (
               <>
-                <span className={isActive ? 'text-primary' : 'group-hover:text-primary transition-colors'}>
+                <span className={isActive ? 'text-white' : 'group-hover:text-white transition-colors'}>
                   {item.icon}
                 </span>
                 {!collapsed && (
                   <>
                     <span className="flex-1 font-medium">{item.label}</span>
                     {item.badge !== undefined && (
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-status-error text-white">
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary-dark text-white">
                         {item.badge}
                       </span>
                     )}
@@ -133,10 +133,10 @@ const Sidebar: React.FC = () => {
       </nav>
 
       {/* Toggle Button */}
-      <div className="p-4 border-t border-gray-200/50 dark:border-gray-700/50">
+      <div className="p-4 border-t border-gray-800">
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-gray-600 dark:text-gray-400"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors text-gray-400"
           aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
         >
           {collapsed ? (

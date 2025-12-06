@@ -6,48 +6,47 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#8b5cf6',
-          dark: '#7c3aed',
-          light: '#a78bfa',
+          DEFAULT: '#7C3AED', // Attmosfire Purple
+          dark: '#6D28D9',
+          light: '#8B5CF6',
         },
         secondary: {
-          DEFAULT: '#06b6d4',
-          dark: '#0891b2',
-          light: '#22d3ee',
+          DEFAULT: '#64748B', // Slate
+          dark: '#475569',
+          light: '#94A3B8',
         },
         surface: {
-          dark: '#1e293b',
-          darker: '#0f172a',
-          light: '#ffffff',
-          lighter: '#f8fafc',
+          dark: '#1E1E2E',   // Deep Charcoal (Sidebar)
+          darker: '#181825', // Darker background
+          light: '#F3F4F6',  // Light Gray (Main Content)
+          lighter: '#FFFFFF',
         },
         accent: {
-          violet: '#8b5cf6',
-          cyan: '#06b6d4',
-          indigo: '#6366f1',
+          violet: '#7C3AED',
+          cyan: '#06B6D4',
+          indigo: '#6366F1',
         },
         status: {
-          success: '#10b981',
-          warning: '#f59e0b',
-          error: '#ef4444',
-          info: '#3b82f6',
+          success: '#10B981',
+          warning: '#F59E0B',
+          error: '#EF4444',
+          info: '#3B82F6',
         },
       },
       fontFamily: {
-        sans: ['Poppins', 'sans-serif'],
+        sans: ['Poppins', 'sans-serif'], // Keeping Poppins as requested (no template changes)
       },
       borderRadius: {
-        DEFAULT: '12px',
-        card: '12px',
+        DEFAULT: '16px', // Rounded 2xl look
+        card: '16px',
       },
       boxShadow: {
-        glass: '0 8px 32px 0 rgba(31, 38, 135, 0.37)',
-        'glass-light': '0 8px 32px 0 rgba(200, 200, 200, 0.2)',
-        neon: '0 0 20px rgba(139, 92, 246, 0.5)',
-        'neon-cyan': '0 0 20px rgba(6, 182, 212, 0.5)',
+        glass: '0 8px 32px 0 rgba(31, 38, 135, 0.15)', // Softer glass
+        'glass-light': '0 4px 20px 0 rgba(0, 0, 0, 0.05)', // Clean soft shadow
+        soft: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       },
       backdropBlur: {
-        glass: '10px',
+        glass: '12px',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',

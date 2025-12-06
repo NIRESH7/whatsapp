@@ -6,7 +6,7 @@
 
 @layer base {
   body {
-    @apply bg-surface-lighter dark:bg-surface-darker text-gray-900 dark:text-gray-100 font-sans antialiased;
+    @apply bg-surface-light dark:bg-surface-darker text-gray-900 dark:text-gray-100 font-sans antialiased;
     font-weight: 300;
   }
 
@@ -23,49 +23,49 @@
 
 @layer components {
   .glass-panel {
-    @apply bg-white/85 dark:bg-surface-dark/85 backdrop-blur-glass border border-gray-200/50 dark:border-gray-700/50 shadow-glass-light dark:shadow-glass rounded-card;
+    @apply bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 shadow-soft dark:shadow-none rounded-card;
   }
 
   .glass-panel-strong {
-    @apply bg-white/95 dark:bg-surface-dark/95 backdrop-blur-glass border border-gray-200/70 dark:border-gray-600/70 shadow-glass-light dark:shadow-glass rounded-card;
+    @apply bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 shadow-lg dark:shadow-none rounded-card;
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-primary to-accent-violet hover:from-primary-dark hover:to-primary text-white font-medium py-2.5 px-5 rounded-card transition-all duration-300 shadow-lg hover:shadow-neon;
+    @apply bg-primary hover:bg-primary-dark text-white font-medium py-2.5 px-6 rounded-xl transition-all duration-300 shadow-md hover:shadow-lg;
   }
 
   .btn-secondary {
-    @apply bg-secondary hover:bg-secondary-dark text-white font-medium py-2.5 px-5 rounded-card transition-all duration-300 shadow-lg hover:shadow-neon-cyan;
+    @apply bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 font-medium py-2.5 px-6 rounded-xl transition-all duration-300 shadow-sm;
   }
 
   .skeleton {
-    @apply animate-pulse bg-gray-200 dark:bg-gray-700 rounded;
+    @apply animate-pulse bg-gray-200 dark:bg-gray-800 rounded;
   }
 
   .skeleton-shimmer {
-    @apply relative overflow-hidden bg-gray-200 dark:bg-gray-700;
+    @apply relative overflow-hidden bg-gray-200 dark:bg-gray-800;
   }
 
   .skeleton-shimmer::after {
     content: '';
-    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/30 dark:via-white/10 to-transparent animate-shimmer;
+    @apply absolute inset-0 bg-gradient-to-r from-transparent via-white/40 dark:via-white/5 to-transparent animate-shimmer;
   }
 }
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-surface-dark;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  @apply bg-gray-300 dark:bg-gray-700 rounded-full;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-500;
+  @apply bg-gray-400 dark:bg-gray-600;
 }
