@@ -47,7 +47,26 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                 console.error('Error loading custom templates:', e);
             }
         }
+
+        // Request saved contacts from parent (Main App)
+        window.parent.postMessage({ type: 'REQUEST_CONTACTS' }, '*');
+
+        const handleMessage = (event) => {
+            if (event.data.type === 'LOAD_CONTACTS') {
+                console.log('Loaded contacts from parent:', event.data.contacts.length);
+                setUploadedContacts(event.data.contacts);
+            }
+        };
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
     }, []);
+
+    // Sync uploaded contacts to parent (Main App) for persistence
+    useEffect(() => {
+        if (uploadedContacts.length > 0) {
+            window.parent.postMessage({ type: 'SAVE_CONTACTS', contacts: uploadedContacts }, '*');
+        }
+    }, [uploadedContacts]);
 
     // Poll for new messages every 2 seconds
     useEffect(() => {

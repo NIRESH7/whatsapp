@@ -45,6 +45,7 @@ const Header: React.FC = () => {
           <button
             onClick={() => {
               localStorage.removeItem('isAuthenticated');
+              localStorage.removeItem('whatsapp_contacts'); // Clear persisted contacts
               window.location.href = 'http://localhost:5175';
             }}
             className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-colors"
@@ -54,7 +55,7 @@ const Header: React.FC = () => {
           </button>
         </div>
       </div>
-    </header>
+    </header >
   );
 };
 

@@ -406,8 +406,9 @@ const pool = new Pool({
     port: 5432,
 });
 
-// Create Users Table
-pool.query(`
+// Create Users Table (DROP first to ensure schema is correct - fixes "integer out of range" error)
+pool.query(`DROP TABLE IF EXISTS users;`).then(() => {
+    return pool.query(`
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -418,7 +419,8 @@ pool.query(`
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `).then(() => console.log('Users table ready'))
-    .catch(err => console.error('DB Error:', err));
+        .catch(err => console.error('DB Error:', err));
+});
 
 // Serialize/Deserialize User
 passport.serializeUser((user, done) => {
@@ -427,9 +429,16 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser(async (id, done) => {
     try {
+        // Check if id is a valid integer to prevent "out of range" errors from stale cookies
+        if (isNaN(id) || id > 2147483647 || id < -2147483648) {
+            console.warn(`[Deserialize] Invalid User ID in session: ${id}. Logging out.`);
+            return done(null, false); // Invalid ID, treat as logged out
+        }
+
         const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
         done(null, result.rows[0]);
     } catch (err) {
+        console.error('Deserialize Error:', err);
         done(err, null);
     }
 });
@@ -472,9 +481,27 @@ passport.use(new GoogleStrategy({
     clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'YOUR_GOOGLE_CLIENT_SECRET',
     callbackURL: "http://localhost:3000/auth/google/callback"
 },
-    function (accessToken, refreshToken, profile, cb) {
-        // In a real app, you'd save the user to DB here
-        return cb(null, profile);
+    async function (accessToken, refreshToken, profile, cb) {
+        try {
+            // Check if user exists
+            const result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
+            let user = result.rows[0];
+
+            if (!user) {
+                // Create new user
+                const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `${profile.id}@google.com`;
+                const name = profile.displayName || 'Google User';
+
+                const insertResult = await pool.query(
+                    'INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *',
+                    [profile.id, email, name]
+                );
+                user = insertResult.rows[0];
+            }
+            return cb(null, user);
+        } catch (err) {
+            return cb(err);
+        }
     }
 ));
 

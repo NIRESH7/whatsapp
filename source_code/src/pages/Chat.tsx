@@ -17,6 +17,26 @@ const Chat: React.FC = () => {
         }
     }, [actualTheme]);
 
+    // Handle persistence messages from iframe
+    useEffect(() => {
+        const handleMessage = (event: MessageEvent) => {
+            if (event.data.type === 'SAVE_CONTACTS') {
+                localStorage.setItem('whatsapp_contacts', JSON.stringify(event.data.contacts));
+            } else if (event.data.type === 'REQUEST_CONTACTS') {
+                const saved = localStorage.getItem('whatsapp_contacts');
+                if (saved && iframeRef.current && iframeRef.current.contentWindow) {
+                    iframeRef.current.contentWindow.postMessage({
+                        type: 'LOAD_CONTACTS',
+                        contacts: JSON.parse(saved)
+                    }, '*');
+                }
+            }
+        };
+
+        window.addEventListener('message', handleMessage);
+        return () => window.removeEventListener('message', handleMessage);
+    }, []);
+
     return (
         <div className="h-full w-full flex flex-col bg-surface-lighter dark:bg-surface-darker">
             <div className="flex-1 relative overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm m-4">
