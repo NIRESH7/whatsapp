@@ -515,22 +515,7 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                             {activeMessages.length === 0 ? (
                                 <div className="no-messages">
                                     <p>Start a conversation with {getDisplayName(activeContact)}</p>
-                                    <button
-                                        className="start-conversation-btn"
-                                        onClick={() => setShowTemplateModal(true)}
-                                        style={{
-                                            marginTop: '1rem',
-                                            padding: '0.8rem 1.5rem',
-                                            backgroundColor: 'var(--primary-blue)',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '8px',
-                                            cursor: 'pointer',
-                                            fontWeight: '500'
-                                        }}
-                                    >
-                                        Start Conversation (Send Template)
-                                    </button>
+
                                 </div>
                             ) : (
                                 activeMessages.map((msg, index) => {

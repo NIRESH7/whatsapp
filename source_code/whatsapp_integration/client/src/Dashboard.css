@@ -117,7 +117,7 @@
     background: transparent !important;
 }
 
-.upload-btn-wrapper {}
+
 
 .upload-btn-wrapper input[type=file] {
     font-size: 100px;
@@ -142,9 +142,9 @@
 }
 
 .search-input:focus {
-    border-color: var(--primary-blue);
+    border-color: var(--text-primary);
     background-color: var(--surface-white);
-    box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.1);
 }
 
 .dark .search-input {
@@ -187,7 +187,8 @@
     width: 48px;
     height: 48px;
     border-radius: 16px;
-    background: linear-gradient(135deg, var(--primary-blue), var(--primary-dark));
+    background: linear-gradient(135deg, #9ca3af, #4b5563);
+    /* Gray Gradient */
     color: white;
     display: flex;
     align-items: center;
@@ -229,85 +230,93 @@
 }
 
 .chat-header {
-    height: 80px;
+    height: 88px;
     background-color: var(--surface-white);
-    padding: 0 32px;
+    padding: 0 40px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    box-shadow: var(--shadow-sm);
+    gap: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    /* Ultra subtle */
     z-index: 10;
 }
 
 .chat-header-avatar {
-    width: 44px;
-    height: 44px;
-    border-radius: 14px;
-    background: linear-gradient(135deg, #64748b, #475569);
+    width: 48px;
+    height: 48px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #52525b, #27272a);
+    /* Zinc gradients */
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: bold;
-    margin-right: 0;
-    /* Handled by gap */
+    font-weight: 600;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .chat-header-info h3 {
     margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
+    font-size: 1.15rem;
+    font-weight: 700;
     color: var(--text-primary);
+    letter-spacing: -0.01em;
 }
 
 .chat-header-info span {
     font-size: 0.85rem;
     color: var(--text-secondary);
+    font-weight: 500;
 }
 
 /* Messages */
 .message-list {
     flex: 1;
-    padding: 30px 50px;
+    padding: 40px 60px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .message-item {
-    max-width: 60%;
-    padding: 12px 18px;
-    border-radius: 18px;
+    max-width: 65%;
+    padding: 14px 20px;
     position: relative;
     font-size: 0.95rem;
     line-height: 1.6;
-    box-shadow: var(--shadow-sm);
+    letter-spacing: 0.01em;
 }
 
 .message-item.sent {
     align-self: flex-end;
     background-color: var(--primary-blue);
-    /* Purple */
+    /* Black */
     color: white;
-    border-bottom-right-radius: 4px;
+    border-radius: 20px 20px 2px 20px;
+    /* Bubble shape */
     margin-left: auto;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .message-item.sent .message-time {
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.6);
 }
 
 .message-item.received {
     align-self: flex-start;
     background-color: var(--surface-white);
     color: var(--text-primary);
-    border-bottom-left-radius: 4px;
+    border-radius: 20px 20px 20px 2px;
+    /* Bubble shape */
     margin-right: auto;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid rgba(0, 0, 0, 0.03);
 }
 
 .message-text {
-    margin-bottom: 2px;
+    margin-bottom: 4px;
     word-wrap: break-word;
 }
 
@@ -317,97 +326,123 @@
     text-align: right;
     margin-top: 2px;
     font-weight: 500;
+    letter-spacing: 0.02em;
 }
 
 /* Media */
 .message-media img,
 .message-media video {
     max-width: 100%;
-    border-radius: 8px;
+    border-radius: 12px;
     margin-bottom: 8px;
-    border: 1px solid var(--border-color);
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .document-link {
     display: flex;
     align-items: center;
     padding: 12px;
-    background: rgba(255, 255, 255, 0.5);
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    /* Glassy inside dark/light */
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    border-radius: 12px;
     text-decoration: none;
-    color: var(--primary-dark);
+    color: inherit;
     font-weight: 500;
     font-size: 0.9rem;
-    transition: background 0.2s;
+    transition: all 0.2s;
 }
 
 .document-link:hover {
-    background: white;
+    background: rgba(255, 255, 255, 0.1);
 }
 
 /* Chat Input Area */
 .chat-input-area {
-    padding: 20px 25px;
+    margin: 0 30px 30px 30px;
+    /* Floating styling */
+    padding: 10px 15px;
+    /* Compact padding */
     background-color: var(--surface-white);
-    border-top: 1px solid var(--border-color);
+    border: 1px solid var(--border-color);
+    border-radius: 24px;
+    /* Fully rounded capsule */
     display: flex;
     align-items: center;
-    gap: 15px;
+    gap: 12px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.06);
+    /* Premium float shadow */
 }
 
 .attachment-btn {
-    width: 40px;
-    height: 40px;
-    background-color: transparent;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    /* Circle */
+    background-color: var(--bg-slate);
     color: var(--text-secondary);
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     box-shadow: none;
     padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
 }
 
 .attachment-btn:hover {
-    background-color: var(--bg-slate);
-    color: var(--primary-blue);
+    background-color: var(--primary-blue);
+    color: white;
 }
 
 .chat-input-area textarea {
     flex: 1;
-    height: 48px;
-    padding: 12px 16px;
-    border: 1px solid var(--border-color);
-    border-radius: 24px;
-    background-color: var(--bg-slate);
+    height: 44px;
+    padding: 10px 0;
+    /* Text alignment */
+    border: none;
+    border-radius: 0;
+    background-color: transparent;
     resize: none;
     font-family: inherit;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.chat-input-area textarea::placeholder {
+    color: var(--text-secondary);
+    opacity: 0.7;
 }
 
 .action-buttons button {
     background-color: var(--primary-blue);
     color: white;
     border: none;
-    padding: 0 20px;
-    height: 48px;
-    border-radius: 24px;
+    padding: 0 24px;
+    height: 44px;
+    border-radius: 22px;
+    /* Pill */
     cursor: pointer;
     font-weight: 600;
-    font-size: 0.95rem;
-    transition: background-color 0.2s;
-    box-shadow: var(--shadow-md);
+    font-size: 0.9rem;
+    transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
 .action-buttons button:hover {
-    background-color: var(--primary-dark);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
 }
 
 .action-buttons button:disabled {
     opacity: 0.7;
     cursor: default;
+    transform: none;
     box-shadow: none;
 }
 
 .template-btn {
-    background-color: var(--surface-white) !important;
+    background-color: transparent !important;
     color: var(--text-secondary) !important;
     border: 1px solid var(--border-color) !important;
     box-shadow: none !important;
@@ -416,6 +451,7 @@
 .template-btn:hover {
     background-color: var(--bg-slate) !important;
     color: var(--text-primary) !important;
+    border-color: var(--text-primary) !important;
 }
 
 /* Welcome Screen */
@@ -515,7 +551,7 @@
 }
 
 .contact-time.unread {
-    color: blue;
+    color: #EF4444;
     font-weight: 600;
 }
 
@@ -709,8 +745,8 @@
 }
 
 .unread-badge {
-    background-color: blue;
-    /* Green Badge */
+    background-color: #EF4444;
+    /* Red Badge */
     color: white;
     font-size: 0.75rem;
     font-weight: bold;
@@ -1069,7 +1105,7 @@
 
 
 .contact-time.unread {
-    color: blue;
+    color: #EF4444;
     font-weight: 600;
 }
 
@@ -1091,7 +1127,7 @@
 }
 
 .unread-badge {
-    background-color: blue;
+    background-color: #EF4444;
     /* Green Badge */
     color: white;
     font-size: 0.75rem;
@@ -1122,8 +1158,8 @@
 }
 
 .contact-checkbox.checked {
-    background-color: var(--primary-blue);
-    border-color: var(--primary-blue);
+    background-color: #18181b;
+    border-color: #18181b;
 }
 
 .contact-item.selected {
@@ -1141,7 +1177,7 @@
 .bulk-action-bar button {
     width: 100%;
     padding: 10px;
-    background-color: var(--primary-blue);
+    background-color: #18181b;
     color: white;
     border: none;
     border-radius: 8px;
@@ -1155,7 +1191,7 @@
 }
 
 .icon-btn.active {
-    background-color: var(--primary-blue);
+    background-color: #27272a;
     color: white;
 }
 
@@ -1217,8 +1253,8 @@
 }
 
 .bulk-modal textarea:focus {
-    border-color: var(--primary-blue);
-    box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+    border-color: #52525b;
+    box-shadow: 0 0 0 3px rgba(82, 82, 91, 0.1);
 }
 
 .bulk-modal-actions {
@@ -1249,7 +1285,7 @@
 }
 
 .bulk-modal-actions .send-btn {
-    background-color: var(--primary-blue);
+    background-color: #18181b;
     color: white;
 }
 
@@ -1285,9 +1321,9 @@
 }
 
 .template-side-panel .template-option-btn:hover {
-    background-color: #e8f0fe;
-    border-color: #007bff;
-    color: #007bff;
+    background-color: #f4f4f5;
+    border-color: #52525b;
+    color: #18181b;
 }
 
 .template-side-panel .template-option-btn:disabled {
@@ -1322,14 +1358,14 @@
 .form-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     color: white;
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 .form-header h4 {
@@ -1424,7 +1460,7 @@
 }
 
 .template-form-actions .save-btn {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
 }
@@ -1448,7 +1484,7 @@
 .create-template-btn {
     width: 100%;
     padding: 14px 20px;
-    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    background: #18181b;
     color: white;
     border: none;
     border-radius: 10px;
@@ -1461,8 +1497,8 @@
 
 .create-template-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-    background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
 }
 
 /* Template Item with Delete Button */
@@ -1517,7 +1553,7 @@
 .form-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -1619,9 +1655,9 @@
 }
 
 .template-form-actions .save-btn {
-    background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
     color: white;
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .template-form-actions .save-btn:hover {
@@ -1643,7 +1679,7 @@
 .create-template-btn {
     width: 100%;
     padding: 14px 20px;
-    background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+    background: #18181b;
     color: white;
     border: none;
     border-radius: 10px;
@@ -2115,12 +2151,12 @@
 }
 
 .dark-mode .create-template-btn {
-    background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
-    color: #111b21 !important;
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%) !important;
+    color: white !important;
 }
 
 .dark-mode .create-template-btn:hover {
-    background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%) !important;
 }
 
 /* Dark mode for create template form */
@@ -2229,12 +2265,12 @@
     }
 
     .create-template-btn {
-        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
-        color: #111b21 !important;
+        background: #18181b !important;
+        color: white !important;
     }
 
     .create-template-btn:hover {
-        background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+        background: #27272a !important;
     }
 
     .create-template-form {
@@ -2268,8 +2304,8 @@
     }
 
     .template-input:focus {
-        border-color: #00a884 !important;
-        box-shadow: 0 0 0 4px rgba(0, 168, 132, 0.1) !important;
+        border-color: #52525b !important;
+        box-shadow: 0 0 0 4px rgba(82, 82, 91, 0.1) !important;
     }
 
     .input-hint {
@@ -2378,7 +2414,7 @@
     }
 
     .contact-item.selected {
-        background-color: #1d3a2f !important;
+        background-color: #27272a !important;
     }
 
     .contact-avatar {
@@ -2395,7 +2431,7 @@
     }
 
     .contact-time.unread {
-        color: #00a884 !important;
+        color: #EF4444 !important;
     }
 
     .contact-message-preview {
@@ -2403,8 +2439,8 @@
     }
 
     .unread-badge {
-        background-color: #00a884 !important;
-        color: #111b21 !important;
+        background-color: #EF4444 !important;
+        color: white !important;
     }
 
     /* Contact Checkbox */
@@ -2414,24 +2450,24 @@
     }
 
     .contact-checkbox.checked {
-        background-color: #00a884 !important;
-        border-color: #00a884 !important;
-        color: #111b21 !important;
+        background-color: #000000 !important;
+        border-color: #52525b !important;
+        color: white !important;
     }
 
     /* Bulk Action Bar */
     .bulk-action-bar {
-        background-color: #1d3a2f !important;
+        background-color: #18181b !important;
         border-bottom: 1px solid #2a3942 !important;
     }
 
     .bulk-action-bar button {
-        background-color: #00a884 !important;
-        color: #111b21 !important;
+        background-color: #000000 !important;
+        color: white !important;
     }
 
     .bulk-action-bar button:hover {
-        background-color: #008f6d !important;
+        background-color: #27272a !important;
     }
 
     /* Chat Window */
@@ -2667,11 +2703,11 @@
 
     /* Document Links */
     .document-link {
-        color: #00a884 !important;
+        color: #e9edef !important;
     }
 
     .document-link:hover {
-        color: #008f6d !important;
+        color: #d1d7db !important;
     }
 }
 
@@ -2759,13 +2795,13 @@
     /* Save/Create Button */
     button.save-btn,
     div.template-form-actions .save-btn {
-        background: linear-gradient(135deg, #00a884 0%, #008f6d 100%) !important;
-        color: #111b21 !important;
+        background: linear-gradient(135deg, #52525b 0%, #27272a 100%) !important;
+        color: white !important;
     }
 
     button.save-btn:hover,
     div.template-form-actions .save-btn:hover {
-        background: linear-gradient(135deg, #008f6d 0%, #007a5a 100%) !important;
+        background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%) !important;
     }
 
     button.save-btn svg,
@@ -3182,12 +3218,12 @@
 
 /* Change all green buttons to BLUE in dark mode */
 .dark-mode .action-buttons button {
-    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%) !important;
     color: white !important;
 }
 
 .dark-mode .action-buttons button:hover {
-    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%) !important;
 }
 
 .dark-mode .bulk-action-bar button {
@@ -3213,12 +3249,12 @@
 }
 
 .dark-mode .save-btn {
-    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%) !important;
     color: white !important;
 }
 
 .dark-mode .save-btn:hover {
-    background: linear-gradient(135deg, #0066cc 0%, #0052a3 100%) !important;
+    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%) !important;
 }
 
 .dark-mode .save-btn svg {
@@ -3236,7 +3272,7 @@
 }
 
 .dark-mode .new-chat-modal button {
-    background: linear-gradient(135deg, #0084ff 0%, #0066cc 100%) !important;
+    background: linear-gradient(135deg, #52525b 0%, #27272a 100%) !important;
     color: white !important;
 }
 
@@ -3360,9 +3396,9 @@
 }
 
 .dark-mode .template-input:focus {
-    border-color: #0084ff !important;
+    border-color: #52525b !important;
     color: #ffffff !important;
-    box-shadow: 0 0 0 4px rgba(0, 132, 255, 0.1) !important;
+    box-shadow: 0 0 0 4px rgba(82, 82, 91, 0.1) !important;
 }
 
 /* Fix search input - WHITE TEXT */
@@ -3593,15 +3629,15 @@ button {
 }
 
 .contact-item.active {
-    background: linear-gradient(to right, rgba(3, 102, 214, 0.08), rgba(3, 102, 214, 0.04));
-    border-left: 3px solid var(--color-accent);
+    background: linear-gradient(to right, rgba(0, 0, 0, 0.08), rgba(0, 0, 0, 0.04));
+    border-left: 3px solid #18181b;
 }
 
 .contact-avatar {
     width: 48px;
     height: 48px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--color-accent), var(--color-accent-hover));
+    background: linear-gradient(135deg, #9ca3af, #4b5563);
     color: white;
     font-weight: 600;
     font-size: 18px;
@@ -3626,7 +3662,7 @@ button {
 }
 
 .unread-badge {
-    background: var(--color-accent);
+    background: #EF4444;
     color: white;
     font-size: 11px;
     font-weight: 600;
@@ -4091,9 +4127,9 @@ select {
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-    /* Blue Gradient */
-    background-color: #3b82f6 !important;
+    background: linear-gradient(135deg, #27272a 0%, #000000 100%) !important;
+    /* Black Gradient */
+    background-color: #000000 !important;
     /* Fallback */
     color: white !important;
     border: none !important;
@@ -4286,9 +4322,9 @@ select {
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%) !important;
-    /* Blue Gradient */
-    background-color: #3b82f6 !important;
+    background: linear-gradient(135deg, #27272a 0%, #000000 100%) !important;
+    /* Black Gradient */
+    background-color: #000000 !important;
     /* Fallback */
     color: white !important;
     border: none !important;

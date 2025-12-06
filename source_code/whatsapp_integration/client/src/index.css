@@ -20,24 +20,29 @@ textarea,
   line-height: 1.5;
   font-weight: 400;
 
-  /* Color Palette Variables - Attmosfire Theme */
-  --primary-blue: #7C3AED;
-  /* Purple */
-  --primary-light: #F3E8FF;
-  /* Light Purple */
-  --primary-dark: #6D28D9;
-  /* Dark Purple */
-  --bg-slate: #F3F4F6;
+  /* Color Palette Variables - Black & White Theme */
+  --primary-blue: #18181b;
+  /* Zinc 900 (Black) */
+  --primary-light: #f4f4f5;
+  /* Zinc 100 */
+  --primary-dark: #000000;
+  /* Pure Black */
+  --bg-slate: #fafafa;
+  /* Zinc 50 */
   --surface-white: #ffffff;
-  --text-primary: #1E293B;
-  --text-secondary: #64748B;
-  --border-color: #E2E8F0;
+  --text-primary: #18181b;
+  /* Zinc 900 */
+  --text-secondary: #71717a;
+  /* Zinc 500 */
+  --border-color: #e4e4e7;
+  /* Zinc 200 */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-  --msg-sent-bg: #7C3AED;
+  --msg-sent-bg: #18181b;
+  --msg-sent-text: #ffffff;
   --msg-received-bg: #ffffff;
   --input-bg: #ffffff;
-  --hover-bg: #F8FAFC;
+  --hover-bg: #f4f4f5;
 
   color-scheme: light dark;
   color: var(--text-primary);
@@ -51,27 +56,30 @@ textarea,
 
 /* Dark Mode Overrides */
 .dark {
-  --primary-blue: #8B5CF6;
-  /* Lighter Purple for Dark Mode */
-  --primary-light: #2E1065;
-  --primary-dark: #7C3AED;
-  --bg-slate: #0F172A;
-  /* Very dark slate for main background */
-  --surface-white: #1E1E2E;
-  /* Deep Charcoal */
-  --text-primary: #F1F5F9;
-  /* Light text */
-  --text-secondary: #94A3B8;
-  /* Muted text */
-  --border-color: #334155;
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.5);
-  --msg-sent-bg: #6D28D9;
-  /* Darker blue for sent messages */
-  --msg-received-bg: #334155;
-  /* Dark slate for received */
-  --input-bg: #1E1E2E;
-  --hover-bg: #334155;
+  --primary-blue: #ffffff;
+  /* White for High Contrast */
+  --primary-light: #27272a;
+  /* Zinc 800 */
+  --primary-dark: #e4e4e7;
+  /* Zinc 200 */
+  --bg-slate: #000000;
+  /* Pure Black */
+  --surface-white: #09090b;
+  /* Zinc 950 */
+  --text-primary: #f4f4f5;
+  /* Zinc 100 */
+  --text-secondary: #a1a1aa;
+  /* Zinc 400 */
+  --border-color: #27272a;
+  /* Zinc 800 */
+  --shadow-sm: 0 1px 2px 0 rgb(255 255 255 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(255 255 255 / 0.1);
+  --msg-sent-bg: #ffffff;
+  --msg-sent-text: #000000;
+  --msg-received-bg: #18181b;
+  /* Zinc 900 */
+  --input-bg: #09090b;
+  --hover-bg: #18181b;
 }
 
 a {

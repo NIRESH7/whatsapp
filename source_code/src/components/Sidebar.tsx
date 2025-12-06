@@ -120,7 +120,7 @@ const Sidebar: React.FC = () => {
                   <>
                     <span className="flex-1 font-medium">{item.label}</span>
                     {item.badge !== undefined && (
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-primary-dark text-white">
+                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-600 text-white">
                         {item.badge}
                       </span>
                     )}

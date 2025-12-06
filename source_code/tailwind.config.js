@@ -6,43 +6,43 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#7C3AED', // Attmosfire Purple
-          dark: '#6D28D9',
-          light: '#8B5CF6',
+          DEFAULT: '#18181b', // Zinc 900 (Black-ish)
+          dark: '#000000',    // Pure Black
+          light: '#3f3f46',   // Zinc 700
         },
         secondary: {
-          DEFAULT: '#64748B', // Slate
-          dark: '#475569',
-          light: '#94A3B8',
+          DEFAULT: '#71717a', // Zinc 500
+          dark: '#3f3f46',
+          light: '#a1a1aa',
         },
         surface: {
-          dark: '#1E1E2E',   // Deep Charcoal (Sidebar)
-          darker: '#181825', // Darker background
-          light: '#F3F4F6',  // Light Gray (Main Content)
-          lighter: '#FFFFFF',
+          dark: '#09090b',   // Zinc 950
+          darker: '#000000', // Pure Black
+          light: '#ffffff',
+          lighter: '#fafafa', // Zinc 50
         },
         accent: {
-          violet: '#7C3AED',
-          cyan: '#06B6D4',
-          indigo: '#6366F1',
+          violet: '#18181b', // Muted to black
+          cyan: '#71717a',   // Muted to gray
+          indigo: '#3f3f46', // Muted to dark gray
         },
         status: {
-          success: '#10B981',
+          success: '#10B981', // Keep functional colors
           warning: '#F59E0B',
           error: '#EF4444',
           info: '#3B82F6',
         },
       },
       fontFamily: {
-        sans: ['Poppins', 'sans-serif'], // Keeping Poppins as requested (no template changes)
+        sans: ['Poppins', 'sans-serif'],
       },
       borderRadius: {
-        DEFAULT: '16px', // Rounded 2xl look
+        DEFAULT: '16px',
         card: '16px',
       },
       boxShadow: {
-        glass: '0 8px 32px 0 rgba(31, 38, 135, 0.15)', // Softer glass
-        'glass-light': '0 4px 20px 0 rgba(0, 0, 0, 0.05)', // Clean soft shadow
+        glass: '0 8px 32px 0 rgba(0, 0, 0, 0.05)',
+        'glass-light': '0 4px 20px 0 rgba(0, 0, 0, 0.05)',
         soft: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
       },
       backdropBlur: {

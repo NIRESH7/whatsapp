@@ -109,7 +109,7 @@ const Inbox: React.FC = () => {
 
     return (
         <div className="p-8 h-full bg-surface-light dark:bg-surface-darker">
-            <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 p-6 rounded-2xl bg-white dark:bg-surface-dark shadow-soft">
+            <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 pb-6 border-b border-gray-200 dark:border-gray-800">
                 <div>
                     <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Live Inbox</h1>
                     <p className="text-gray-500">Real-time conversation statistics</p>
@@ -118,7 +118,7 @@ const Inbox: React.FC = () => {
                     <input
                         type="text"
                         placeholder="Search name or number..."
-                        className="pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-surface-darker text-gray-900 dark:text-white focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none w-full md:w-64 transition-all"
+                        className="pl-10 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl bg-white dark:bg-surface-dark text-gray-900 dark:text-white focus:ring-2 focus:ring-gray-500/20 focus:border-gray-500 outline-none w-full md:w-72 transition-all shadow-sm"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -143,11 +143,11 @@ const Inbox: React.FC = () => {
                     {filteredStats.map((contact) => (
                         <div
                             key={contact.phoneNumber}
-                            className="bg-white dark:bg-surface-dark rounded-2xl p-6 shadow-soft hover:shadow-lg transition-all duration-300 relative group border border-transparent hover:border-primary/10"
+                            className="bg-white dark:bg-surface-dark rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 relative group border border-gray-100 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-600"
                         >
                             <div className="flex items-start justify-between mb-4">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
+                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center text-gray-700 dark:text-gray-300 font-bold text-lg shadow-inner">
                                         {contact.name.charAt(0).toUpperCase()}
                                     </div>
                                     <div>
@@ -157,21 +157,20 @@ const Inbox: React.FC = () => {
                                 </div>
                                 <button
                                     onClick={() => handleMarkAsRead(contact.phoneNumber)}
-                                    className="bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold px-3 py-1.5 rounded-full transition-colors flex items-center gap-1.5"
+                                    className="bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:text-black text-[10px] font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm"
                                     title="Mark as Read"
                                 >
-                                    {contact.unreadCount} NEW <CheckCircle className="w-3.5 h-3.5" />
+                                    {contact.unreadCount} NEW <CheckCircle className="w-3 h-3" />
                                 </button>
                             </div>
 
                             <div className="flex items-center gap-4 mb-5">
-                                <div className="flex-1 bg-gray-50 dark:bg-surface-darker p-2.5 rounded-xl text-center">
+                                <div className="flex-1 bg-transparent border border-gray-100 dark:border-gray-800 p-3 rounded-xl text-center">
                                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Total</p>
                                     <p className="text-lg font-bold text-gray-900 dark:text-white">{contact.totalMessages}</p>
                                 </div>
-                                <div className="flex-1 bg-gray-50 dark:bg-surface-darker p-2.5 rounded-xl text-center">
-                                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Unread</p>
-                                    <p className="text-lg font-bold text-primary">
+                                <div className="flex-1 bg-transparent border border-gray-100 dark:border-gray-800 p-3 rounded-xl text-center">
+                                    <p className="text-lg font-bold text-red-600">
                                         {contact.unreadCount}
                                     </p>
                                 </div>
