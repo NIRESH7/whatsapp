@@ -6,44 +6,46 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#2C2A67', // SBI Dark Blue
-          dark: '#1e1d4a',    // Darker Blue
-          light: '#3d3b8f',   // Lighter Blue
+          DEFAULT: '#818cf8', // Pale Lavender (Indigo 400)
+          dark: '#6366f1',    // Indigo 500
+          light: '#a5b4fc',   // Indigo 300
         },
         secondary: {
-          DEFAULT: '#00A3AB', // SBI Teal
-          dark: '#008289',    // Darker Teal
-          light: '#33b5bc',   // Lighter Teal
+          DEFAULT: '#c084fc', // Purple 400
+          dark: '#a855f7',    // Purple 500
+          light: '#e879f9',   // Fuchsia 400
         },
         surface: {
-          dark: '#0F172A',   // Slate 900 (Navy) - Replaced Black
-          darker: '#020617', // Slate 950 (Darker Navy) - Replaced Pure Black
+          dark: '#0f172a',   // Slate 900 (Soft Midnight)
+          darker: '#020617', // Slate 950 (Deepest)
           light: '#ffffff',
-          lighter: '#F8F9FA', // Light Gray
+          lighter: '#f1f5f9', // Slate 100
         },
         accent: {
-          violet: '#2C2A67', // Muted to Primary
-          cyan: '#00A3AB',   // Muted to Secondary
-          indigo: '#1e1d4a', // Muted to Dark Primary
+          violet: '#818cf8', // Mapped to Primary
+          cyan: '#22d3ee',   // Cyan 400
+          indigo: '#4f46e5',
         },
         status: {
-          success: '#10B981', // Keep functional colors
-          warning: '#F59E0B',
-          error: '#EF4444',
-          info: '#3B82F6',
+          success: '#34d399', // Emerald 400 (Softer)
+          warning: '#fbbf24', // Amber 400
+          error: '#f87171',   // Red 400
+          info: '#818cf8',
         },
       },
       fontFamily: {
-        sans: ['Poppins', 'sans-serif'],
+        sans: ['Inter', 'sans-serif'],
       },
       borderRadius: {
         DEFAULT: '16px',
-        card: '16px',
+        card: '24px',
       },
       boxShadow: {
-        glass: '0 8px 32px 0 rgba(0, 0, 0, 0.05)',
+        glass: '0 8px 32px 0 rgba(0, 0, 0, 0.2)',
         'glass-light': '0 4px 20px 0 rgba(0, 0, 0, 0.05)',
-        soft: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+        soft: '0 10px 40px -10px rgba(0,0,0,0.1)',
+        glow: '0 0 20px rgba(129, 140, 248, 0.4)', // Soft Lavender Glow
+        'glow-sm': '0 0 10px rgba(129, 140, 248, 0.2)',
       },
       backdropBlur: {
         glass: '12px',
