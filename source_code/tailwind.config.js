@@ -6,25 +6,25 @@ export default {
     extend: {
       colors: {
         primary: {
-          DEFAULT: '#18181b', // Zinc 900 (Black-ish)
-          dark: '#000000',    // Pure Black
-          light: '#3f3f46',   // Zinc 700
+          DEFAULT: '#2C2A67', // SBI Dark Blue
+          dark: '#1e1d4a',    // Darker Blue
+          light: '#3d3b8f',   // Lighter Blue
         },
         secondary: {
-          DEFAULT: '#71717a', // Zinc 500
-          dark: '#3f3f46',
-          light: '#a1a1aa',
+          DEFAULT: '#00A3AB', // SBI Teal
+          dark: '#008289',    // Darker Teal
+          light: '#33b5bc',   // Lighter Teal
         },
         surface: {
-          dark: '#09090b',   // Zinc 950
-          darker: '#000000', // Pure Black
+          dark: '#0F172A',   // Slate 900 (Navy) - Replaced Black
+          darker: '#020617', // Slate 950 (Darker Navy) - Replaced Pure Black
           light: '#ffffff',
-          lighter: '#fafafa', // Zinc 50
+          lighter: '#F8F9FA', // Light Gray
         },
         accent: {
-          violet: '#18181b', // Muted to black
-          cyan: '#71717a',   // Muted to gray
-          indigo: '#3f3f46', // Muted to dark gray
+          violet: '#2C2A67', // Muted to Primary
+          cyan: '#00A3AB',   // Muted to Secondary
+          indigo: '#1e1d4a', // Muted to Dark Primary
         },
         status: {
           success: '#10B981', // Keep functional colors

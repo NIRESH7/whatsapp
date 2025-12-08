@@ -187,8 +187,8 @@
     width: 48px;
     height: 48px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #9ca3af, #4b5563);
-    /* Gray Gradient */
+    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    /* Primary Blue Gradient */
     color: white;
     display: flex;
     align-items: center;
@@ -245,8 +245,8 @@
     width: 48px;
     height: 48px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #52525b, #27272a);
-    /* Zinc gradients */
+    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    /* Primary Blue Gradient */
     color: white;
     display: flex;
     align-items: center;
@@ -727,25 +727,25 @@
 
     .chat-input-area {
         margin: 0 10px 10px 10px;
-        padding: 8px 10px;
-        flex-wrap: wrap;
-        /* Allow wrapping if needed */
+        padding: 12px;
+        flex-direction: column !important;
+        align-items: stretch !important;
         height: auto;
-        /* Allow growth */
-        gap: 8px;
+        gap: 12px;
     }
 
     .input-wrapper {
-        flex: 1 1 100%;
-        /* Full width on very small screens if needed, or just flexible */
-        min-width: 200px;
+        width: 100% !important;
+        min-width: 0;
+        flex: none;
     }
 
     .action-buttons {
         display: flex;
-        gap: 8px;
-        margin-left: auto;
-        /* Push to right */
+        gap: 10px;
+        width: 100% !important;
+        justify-content: flex-end !important;
+        margin: 0 !important;
     }
 
     .action-buttons button {
@@ -1482,7 +1482,7 @@
 .form-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
+    background: linear-gradient(135deg, #2C2A67 0%, #1A1840 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -1584,9 +1584,9 @@
 }
 
 .template-form-actions .save-btn {
-    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
+    background: linear-gradient(135deg, #2C2A67 0%, #1A1840 100%);
     color: white;
-    box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3);
+    box-shadow: 0 4px 12px rgba(44, 42, 103, 0.3);
 }
 
 .template-form-actions .save-btn:hover {
@@ -1608,8 +1608,9 @@
 .create-template-btn {
     width: 100%;
     padding: 14px 20px;
-    background: #18181b;
-    color: white;
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    /* Blue Gradient */
+    color: white !important;
     border: none;
     border-radius: 10px;
     font-size: 1rem;
@@ -1621,8 +1622,8 @@
 
 .create-template-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
-    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%);
+    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4) !important;
 }
 
 /* Template Item with Delete Button */
@@ -1677,7 +1678,7 @@
 .form-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -1779,7 +1780,7 @@
 }
 
 .template-form-actions .save-btn {
-    background: linear-gradient(135deg, #52525b 0%, #27272a 100%);
+    background: linear-gradient(135deg, #2C2A67 0%, #1A1840 100%);
     color: white;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
@@ -2294,12 +2295,13 @@
 }
 
 .dark-mode .create-template-btn {
-    background: linear-gradient(135deg, #52525b 0%, #27272a 100%) !important;
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    /* Blue Gradient */
     color: white !important;
 }
 
 .dark-mode .create-template-btn:hover {
-    background: linear-gradient(135deg, #3f3f46 0%, #18181b 100%) !important;
+    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
 }
 
 /* Dark mode for create template form */
@@ -2408,12 +2410,13 @@
     }
 
     .create-template-btn {
-        background: #18181b !important;
+        background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+        /* Green Gradient */
         color: white !important;
     }
 
     .create-template-btn:hover {
-        background: #27272a !important;
+        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
     }
 
     .create-template-form {
@@ -2561,8 +2564,9 @@
     }
 
     .contact-avatar {
-        background-color: #2a3942 !important;
-        color: #e9edef !important;
+        background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+        /* Primary Blue Gradient */
+        color: white !important;
     }
 
     .contact-name {
@@ -2574,7 +2578,7 @@
     }
 
     .contact-time.unread {
-        color: #EF4444 !important;
+        color: #3B82F6 !important;
     }
 
     .contact-message-preview {
@@ -2582,7 +2586,7 @@
     }
 
     .unread-badge {
-        background-color: #EF4444 !important;
+        background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
         color: white !important;
     }
 
@@ -2624,8 +2628,9 @@
     }
 
     .chat-header-avatar {
-        background-color: #2a3942 !important;
-        color: #e9edef !important;
+        background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+        /* Primary Blue Gradient */
+        color: white !important;
     }
 
     .chat-header-info h3 {
@@ -2711,8 +2716,9 @@
 
     /* Action Buttons */
     .action-buttons button {
-        background-color: #00a884 !important;
-        color: #111b21 !important;
+        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+        /* Blue Gradient */
+        color: white !important;
         border: none !important;
     }
 
@@ -2726,12 +2732,14 @@
     }
 
     .template-btn {
-        background-color: #2a3942 !important;
-        color: #e9edef !important;
+        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+        /* Blue Gradient */
+        color: white !important;
+        border: none !important;
     }
 
     .template-btn:hover {
-        background-color: #3b4a54 !important;
+        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
     }
 
     /* Welcome Screen */
@@ -3805,7 +3813,7 @@ button {
 }
 
 .unread-badge {
-    background: #EF4444;
+    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
     color: white;
     font-size: 11px;
     font-weight: 600;
@@ -3938,6 +3946,9 @@ button {
 .action-buttons button {
     padding: 10px 20px;
     border-radius: var(--radius-md);
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    /* Blue Gradient */
+    color: white !important;
     font-weight: 500;
     font-size: 14px;
     border: none;
@@ -3962,14 +3973,16 @@ button[disabled] {
 }
 
 .template-btn {
-    background: var(--color-bg-tertiary);
-    color: var(--color-text-primary);
-    border: 1px solid var(--color-border);
+    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    /* Blue Gradient */
+    color: white !important;
+    border: none !important;
 }
 
 .template-btn:hover {
-    background: var(--color-bg-secondary);
-    border-color: var(--color-border-hover);
+    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+    border: none !important;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
 }
 
 /* ========================================
@@ -4270,9 +4283,9 @@ select {
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, #27272a 0%, #000000 100%) !important;
-    /* Black Gradient */
-    background-color: #000000 !important;
+    background: linear-gradient(135deg, #00A3AB 0%, #008C93 100%) !important;
+    /* Teal Gradient */
+    background-color: #00A3AB !important;
     /* Fallback */
     color: white !important;
     border: none !important;
@@ -4281,12 +4294,25 @@ select {
     font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.2s !important;
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3) !important;
+    box-shadow: 0 4px 10px rgba(0, 163, 171, 0.3) !important;
 }
 
 .ai-assist-btn:hover {
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4) !important;
+    box-shadow: 0 6px 15px rgba(0, 163, 171, 0.4) !important;
+}
+
+/* Force Dark Mode AI Button to be Teal */
+.dark-mode .ai-assist-btn {
+    background: linear-gradient(135deg, #00A3AB 0%, #008C93 100%) !important;
+    color: white !important;
+    box-shadow: 0 4px 10px rgba(0, 163, 171, 0.3) !important;
+}
+
+.dark-mode .ai-assist-btn:hover {
+    background: linear-gradient(135deg, #008C93 0%, #007a80 100%) !important;
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 15px rgba(0, 163, 171, 0.4) !important;
 }
 
 .ai-assist-btn svg {
@@ -4465,9 +4491,9 @@ select {
     align-items: center;
     gap: 8px;
     padding: 8px 16px;
-    background: linear-gradient(135deg, #27272a 0%, #000000 100%) !important;
-    /* Black Gradient */
-    background-color: #000000 !important;
+    background: linear-gradient(135deg, #00A3AB 0%, #008C93 100%) !important;
+    /* Teal Gradient */
+    background-color: #00A3AB !important;
     /* Fallback */
     color: white !important;
     border: none !important;
@@ -4476,12 +4502,12 @@ select {
     font-weight: 600 !important;
     cursor: pointer !important;
     transition: all 0.2s !important;
-    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3) !important;
+    box-shadow: 0 4px 10px rgba(0, 163, 171, 0.3) !important;
 }
 
 .ai-assist-btn:hover {
     transform: translateY(-2px) !important;
-    box-shadow: 0 6px 15px rgba(37, 99, 235, 0.4) !important;
+    box-shadow: 0 6px 15px rgba(0, 163, 171, 0.4) !important;
 }
 
 .ai-assist-btn svg {
@@ -4608,8 +4634,8 @@ select {
 }
 
 .contact-time.unread {
-    color: var(--primary-green);
-    font-weight: 600;
+    color: #3B82F6 !important;
+    font-weight: 700;
 }
 
 .contact-message-preview {
@@ -4637,6 +4663,7 @@ select {
     padding: 0 6px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
+
 /* ==========================================================================
    MOBILE OVERRIDES (MUST BE AT THE END TO WIN SPECIFICITY WARS)
    ========================================================================== */
@@ -4650,7 +4677,8 @@ select {
         position: fixed !important;
         height: 100% !important;
         border-left: none !important;
-        z-index: 9999 !important; /* On top of everything */
+        z-index: 9999 !important;
+        /* On top of everything */
         display: flex !important;
         flex-direction: column !important;
     }
@@ -4674,7 +4702,8 @@ select {
     .create-template-form {
         flex: 1 !important;
         overflow-y: auto !important;
-        padding-bottom: 120px !important; /* Generous padding */
+        padding-bottom: 120px !important;
+        /* Generous padding */
     }
 
     /* Chat window shouldn't be squeezed */

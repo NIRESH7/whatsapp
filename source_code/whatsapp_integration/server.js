@@ -406,9 +406,8 @@ const pool = new Pool({
     port: 5432,
 });
 
-// Create Users Table (DROP first to ensure schema is correct - fixes "integer out of range" error)
-pool.query(`DROP TABLE IF EXISTS users;`).then(() => {
-    return pool.query(`
+// Create Users Table
+pool.query(`
     CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email VARCHAR(255) UNIQUE NOT NULL,
@@ -419,8 +418,7 @@ pool.query(`DROP TABLE IF EXISTS users;`).then(() => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
 `).then(() => console.log('Users table ready'))
-        .catch(err => console.error('DB Error:', err));
-});
+    .catch(err => console.error('DB Error:', err));
 
 // Serialize/Deserialize User
 passport.serializeUser((user, done) => {
