@@ -495,15 +495,28 @@ passport.use(new GoogleStrategy({
             let user = result.rows[0];
 
             if (!user) {
-                // Create new user
+                // Check if user exists with this email (account linking)
                 const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `${profile.id}@google.com`;
                 const name = profile.displayName || 'Google User';
 
-                const insertResult = await pool.query(
-                    'INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *',
-                    [profile.id, email, name]
-                );
-                user = insertResult.rows[0];
+                const existingUserResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+                const existingUser = existingUserResult.rows[0];
+
+                if (existingUser) {
+                    // Update existing user with google_id
+                    const updateResult = await pool.query(
+                        'UPDATE users SET google_id = $1 WHERE email = $2 RETURNING *',
+                        [profile.id, email]
+                    );
+                    user = updateResult.rows[0];
+                } else {
+                    // Create new user
+                    const insertResult = await pool.query(
+                        'INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *',
+                        [profile.id, email, name]
+                    );
+                    user = insertResult.rows[0];
+                }
             }
             return cb(null, user);
         } catch (err) {
