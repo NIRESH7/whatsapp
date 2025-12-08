@@ -187,7 +187,7 @@
     width: 48px;
     height: 48px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    background: linear-gradient(135deg, #818cf8, #6366f1) !important;
     /* Primary Blue Gradient */
     color: white;
     display: flex;
@@ -245,7 +245,7 @@
     width: 48px;
     height: 48px;
     border-radius: 16px;
-    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    background: linear-gradient(135deg, #818cf8, #6366f1) !important;
     /* Primary Blue Gradient */
     color: white;
     display: flex;
@@ -1608,7 +1608,7 @@
 .create-template-btn {
     width: 100%;
     padding: 14px 20px;
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
     /* Blue Gradient */
     color: white !important;
     border: none;
@@ -1622,7 +1622,7 @@
 
 .create-template-btn:hover {
     transform: translateY(-2px);
-    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+    background: linear-gradient(135deg, #6366f1 0%, #1D4ED8 100%) !important;
     box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4) !important;
 }
 
@@ -1678,7 +1678,7 @@
 .form-icon {
     width: 48px;
     height: 48px;
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
     border-radius: 12px;
     display: flex;
     align-items: center;
@@ -2295,13 +2295,13 @@
 }
 
 .dark-mode .create-template-btn {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
     /* Blue Gradient */
     color: white !important;
 }
 
 .dark-mode .create-template-btn:hover {
-    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+    background: linear-gradient(135deg, #6366f1 0%, #1D4ED8 100%) !important;
 }
 
 /* Dark mode for create template form */
@@ -2410,13 +2410,13 @@
     }
 
     .create-template-btn {
-        background: linear-gradient(135deg, #10B981 0%, #059669 100%) !important;
+        background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
         /* Green Gradient */
         color: white !important;
     }
 
     .create-template-btn:hover {
-        background: linear-gradient(135deg, #059669 0%, #047857 100%) !important;
+        background: linear-gradient(135deg, #6366f1 0%, #047857 100%) !important;
     }
 
     .create-template-form {
@@ -2564,7 +2564,7 @@
     }
 
     .contact-avatar {
-        background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+        background: linear-gradient(135deg, #818cf8, #6366f1) !important;
         /* Primary Blue Gradient */
         color: white !important;
     }
@@ -2578,7 +2578,7 @@
     }
 
     .contact-time.unread {
-        color: #3B82F6 !important;
+        color: #818cf8 !important;
     }
 
     .contact-message-preview {
@@ -2586,7 +2586,7 @@
     }
 
     .unread-badge {
-        background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+        background: linear-gradient(135deg, #818cf8, #6366f1) !important;
         color: white !important;
     }
 
@@ -2628,7 +2628,7 @@
     }
 
     .chat-header-avatar {
-        background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+        background: linear-gradient(135deg, #818cf8, #6366f1) !important;
         /* Primary Blue Gradient */
         color: white !important;
     }
@@ -2716,7 +2716,7 @@
 
     /* Action Buttons */
     .action-buttons button {
-        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+        background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
         /* Blue Gradient */
         color: white !important;
         border: none !important;
@@ -2732,14 +2732,14 @@
     }
 
     .template-btn {
-        background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+        background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
         /* Blue Gradient */
         color: white !important;
         border: none !important;
     }
 
     .template-btn:hover {
-        background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+        background: linear-gradient(135deg, #6366f1 0%, #1D4ED8 100%) !important;
     }
 
     /* Welcome Screen */
@@ -3813,7 +3813,7 @@ button {
 }
 
 .unread-badge {
-    background: linear-gradient(135deg, #3B82F6, #2563EB) !important;
+    background: linear-gradient(135deg, #818cf8, #6366f1) !important;
     color: white;
     font-size: 11px;
     font-weight: 600;
@@ -3946,7 +3946,7 @@ button {
 .action-buttons button {
     padding: 10px 20px;
     border-radius: var(--radius-md);
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
     /* Blue Gradient */
     color: white !important;
     font-weight: 500;
@@ -3973,14 +3973,14 @@ button[disabled] {
 }
 
 .template-btn {
-    background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+    background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%) !important;
     /* Blue Gradient */
     color: white !important;
     border: none !important;
 }
 
 .template-btn:hover {
-    background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+    background: linear-gradient(135deg, #6366f1 0%, #1D4ED8 100%) !important;
     border: none !important;
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3) !important;
 }
@@ -4634,7 +4634,7 @@ select {
 }
 
 .contact-time.unread {
-    color: #3B82F6 !important;
+    color: #818cf8 !important;
     font-weight: 700;
 }
 

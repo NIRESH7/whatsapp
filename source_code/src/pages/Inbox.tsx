@@ -148,7 +148,7 @@ const Inbox: React.FC = () => {
                             <div className="flex items-start justify-between mb-3 md:mb-6">
                                 <div className="flex flex-col items-center gap-2 w-full md:w-auto md:flex-1 md:flex-row md:items-center md:gap-4 md:text-left min-w-0">
                                     <div className="relative flex-shrink-0">
-                                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-sm md:text-xl shadow-lg shadow-blue-500/20">
+                                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-gradient-to-br from-indigo-400 to-violet-500 flex items-center justify-center text-white font-bold text-sm md:text-xl shadow-lg shadow-indigo-500/20">
                                             {contact.name.charAt(0).toUpperCase()}
                                         </div>
                                         <div className="absolute -bottom-1 -right-1 bg-green-500 w-3 h-3 md:w-4 md:h-4 rounded-full border-2 border-white dark:border-surface-dark"></div>
