@@ -143,47 +143,57 @@ const Inbox: React.FC = () => {
                     {filteredStats.map((contact) => (
                         <div
                             key={contact.phoneNumber}
-                            className="bg-white dark:bg-surface-dark rounded-2xl p-6 shadow-sm hover:shadow-xl transition-all duration-300 relative group border border-gray-100 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-600"
+                            className="bg-white dark:bg-surface-dark rounded-[24px] p-6 shadow-sm hover:shadow-2xl transition-all duration-300 relative group border border-gray-100 dark:border-gray-800 hover:-translate-y-1"
                         >
-                            <div className="flex items-start justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900 flex items-center justify-center text-gray-700 dark:text-gray-300 font-bold text-lg shadow-inner">
-                                        {contact.name.charAt(0).toUpperCase()}
+                            <div className="flex items-start justify-between mb-6">
+                                <div className="flex items-center gap-4">
+                                    <div className="relative">
+                                        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/20">
+                                            {contact.name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="absolute -bottom-1 -right-1 bg-green-500 w-4 h-4 rounded-full border-2 border-white dark:border-surface-dark"></div>
                                     </div>
                                     <div>
-                                        <h3 className="font-bold text-gray-900 dark:text-white">{contact.name}</h3>
-                                        <p className="text-xs text-gray-500 font-medium">{contact.phoneNumber}</p>
+                                        <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{contact.name}</h3>
+                                        <p className="text-sm text-gray-500 font-medium tracking-wide">{contact.phoneNumber}</p>
                                     </div>
                                 </div>
                                 <button
                                     onClick={() => handleMarkAsRead(contact.phoneNumber)}
-                                    className="bg-gray-900 hover:bg-black dark:bg-white dark:hover:bg-gray-200 text-white dark:text-black text-[10px] font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 shadow-sm"
+                                    className="bg-black hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-200 text-white dark:text-black text-[10px] font-bold px-4 py-2 rounded-full transition-all flex items-center gap-2 shadow-lg shadow-gray-200/50 dark:shadow-none translate-x-2 group-hover:translate-x-0 opacity-100"
                                     title="Mark as Read"
                                 >
-                                    {contact.unreadCount} NEW <CheckCircle className="w-3 h-3" />
+                                    {contact.unreadCount} NEW
+                                    <CheckCircle className="w-3.5 h-3.5" />
                                 </button>
                             </div>
 
-                            <div className="flex items-center gap-4 mb-5">
-                                <div className="flex-1 bg-transparent border border-gray-100 dark:border-gray-800 p-3 rounded-xl text-center">
-                                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">Total</p>
-                                    <p className="text-lg font-bold text-gray-900 dark:text-white">{contact.totalMessages}</p>
+                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 flex flex-col items-center justify-center border border-gray-100 dark:border-gray-700/50">
+                                    <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Total Messages</span>
+                                    <span className="text-2xl font-black text-gray-900 dark:text-white">{contact.totalMessages}</span>
                                 </div>
-                                <div className="flex-1 bg-transparent border border-gray-100 dark:border-gray-800 p-3 rounded-xl text-center">
-                                    <p className="text-lg font-bold text-red-600">
-                                        {contact.unreadCount}
-                                    </p>
+                                <div className="bg-red-50 dark:bg-red-900/10 rounded-2xl p-3 flex flex-col items-center justify-center border border-red-100 dark:border-red-900/20">
+                                    <span className="text-[10px] uppercase font-bold text-red-500 tracking-wider mb-1">Unread</span>
+                                    <span className="text-2xl font-black text-red-600 dark:text-red-400">{contact.unreadCount}</span>
                                 </div>
                             </div>
 
-                            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
-                                <div className="flex items-center text-xs text-gray-400 mb-2 font-medium">
-                                    <Clock className="w-3.5 h-3.5 mr-1.5" />
-                                    <span>{contact.lastMessageTime}</span>
+                            <div className="relative bg-gray-50 dark:bg-gray-800/30 rounded-2xl p-4 border border-gray-100 dark:border-gray-800">
+                                <div className="absolute top-4 left-4 text-gray-300 dark:text-gray-700">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                                        <path d="M14.017 21L14.017 18C14.017 16.8954 13.1216 16 12.017 16H9C9.00001 15 9.00001 13 11 13C13 13 13.017 10 11 10C8.00001 10 7.00001 12 6.00001 16C5 19 6 21 8 21H12.017C13.1216 21 14.017 20.1046 14.017 19V21ZM21.017 21L21.017 18C21.017 16.8954 20.1216 16 19.017 16H16C16 15 16 13 18 13C20 13 20.017 10 18 10C15 10 14 12 13 16C12 19 13 21 15 21H19.017C20.1216 21 21.017 20.1046 21.017 19V21Z" />
+                                    </svg>
                                 </div>
-                                <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2 leading-relaxed">
-                                    "{contact.lastMessageText}"
-                                </p>
+                                <div className="pl-6">
+                                    <div className="flex items-center justify-end text-[10px] font-bold text-gray-400 mb-1 uppercase tracking-wider">
+                                        <Clock className="w-3 h-3 mr-1" />
+                                        {contact.lastMessageTime}
+                                    </div>
+                                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 italic leading-relaxed line-clamp-2">
+                                        "{contact.lastMessageText}"
+                                    </p>
+                                </div>
                             </div>
                         </div>
                     ))}

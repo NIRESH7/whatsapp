@@ -40,18 +40,42 @@ const App: React.FC = () => {
 };
 
 const MainLayout: React.FC = () => {
+  const [mobileMenuOpen, setMobileMenuOpen] = React.useState(false);
+
   return (
-    <div className="flex min-h-screen bg-surface-lighter dark:bg-surface-darker">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/inbox" element={<Inbox />} />
-          <Route path="/templates" element={<ComingSoon page="Template Forge" />} />
-          <Route path="/clients" element={<ComingSoon page="Client 360" />} />
-          <Route path="/alerts" element={<ComingSoon page="System Alerts" />} />
-        </Routes>
+    <div className="flex min-h-screen bg-surface-lighter dark:bg-surface-darker relative">
+      <Sidebar mobileOpen={mobileMenuOpen} setMobileOpen={setMobileMenuOpen} />
+
+      <main className="flex-1 overflow-y-auto flex flex-col h-screen">
+        {/* Mobile Header */}
+        <div className="md:hidden bg-surface-dark border-b border-gray-800 p-4 sticky top-0 z-40 flex items-center gap-4 shrink-0">
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="text-gray-400 hover:text-white p-1"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          <div className="flex items-center gap-3">
+            <div className="p-1.5 rounded-lg bg-primary/20">
+              {/* Simple icon placeholder or import Zap if needed, but we can just use text for now or simple SVG */}
+              <svg className="w-5 h-5 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </div>
+            <span className="font-bold text-white text-lg">NeuralConnect</span>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/chat" element={<Chat />} />
+            <Route path="/inbox" element={<Inbox />} />
+            <Route path="/templates" element={<ComingSoon page="Template Forge" />} />
+            <Route path="/clients" element={<ComingSoon page="Client 360" />} />
+            <Route path="/alerts" element={<ComingSoon page="System Alerts" />} />
+          </Routes>
+        </div>
       </main>
     </div>
   );

@@ -355,7 +355,7 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
     return (
         <div className={`dashboard-container ${isDarkMode ? 'dark-mode' : ''}`}>
             {/* Sidebar: Contact List */}
-            <div className="sidebar">
+            <div className={`sidebar ${activeContact ? 'hidden-mobile' : ''}`}>
                 <div className="sidebar-header">
                     <h2>Messages</h2>
                     <div className="header-actions">
@@ -498,10 +498,17 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
             </div>
 
             {/* Main: Chat Window */}
-            <div className="chat-window">
+            <div className={`chat-window ${activeContact ? 'visible-mobile' : ''}`}>
                 {activeContact ? (
                     <>
                         <div className="chat-header">
+                            <button
+                                className="back-btn-mobile icon-btn"
+                                onClick={() => setActiveContact(null)}
+                                style={{ marginRight: '10px', display: 'none' }} // Hidden by default, shown in mobile css
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            </button>
                             <div className="chat-header-avatar">
                                 {getDisplayName(activeContact).charAt(0).toUpperCase()}
                             </div>
@@ -631,6 +638,17 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                 showTemplateModal && (
                     <div className="template-side-panel">
                         <div className="template-panel-header">
+                            <button
+                                className="back-panel-btn"
+                                onClick={() => {
+                                    setShowTemplateModal(false);
+                                    setShowCreateTemplate(false);
+                                }}
+                            >
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <polyline points="15 18 9 12 15 6"></polyline>
+                                </svg>
+                            </button>
                             <h3>{showCreateTemplate ? 'Create New Template' : 'Select a Template'}</h3>
                             <button onClick={() => {
                                 setShowTemplateModal(false);
@@ -728,10 +746,10 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                                         Cancel
                                     </button>
                                     <button onClick={handleCreateTemplate} className="save-btn">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                             <polyline points="20 6 9 17 4 12"></polyline>
                                         </svg>
-                                        Create Template
+                                        Save
                                     </button>
                                 </div>
                             </div>

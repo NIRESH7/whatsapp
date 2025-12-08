@@ -19,7 +19,12 @@ interface NavItem {
   badge?: number;
 }
 
-const Sidebar: React.FC = () => {
+interface SidebarProps {
+  mobileOpen: boolean;
+  setMobileOpen: (open: boolean) => void;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, setMobileOpen }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -77,79 +82,101 @@ const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside
-      className={`bg-surface-dark h-screen sticky top-0 transition-all duration-300 ease-in-out border-r border-gray-800 ${collapsed ? 'w-20' : 'w-64'
-        } flex flex-col shadow-xl z-50`}
-    >
-      {/* Header */}
-      <div className="p-6 border-b border-gray-800">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-primary/20">
-            <Zap className="w-6 h-6 text-primary" />
-          </div>
-          {!collapsed && (
-            <div className="flex-1">
-              <h1 className="text-xl font-bold text-white tracking-tight">
-                NeuralConnect
-              </h1>
-              <p className="text-xs text-gray-500">WhatsApp Suite</p>
-            </div>
-          )}
-        </div>
-      </div>
+    <>
+      {/* Mobile Overlay Backdrop */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-      {/* Navigation */}
-      <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.route}
-            to={item.route}
-            className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
-                ? 'bg-primary text-white shadow-soft'
-                : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
-              }`
-            }
+      <aside
+        className={`
+          fixed md:sticky top-0 left-0 h-screen bg-surface-dark border-r border-gray-800
+          transition-transform duration-300 ease-in-out z-50 shadow-2xl flex flex-col
+          ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+          ${collapsed ? 'md:w-20 w-64' : 'w-64'}
+        `}
+      >
+        {/* Header */}
+        <div className="p-6 border-b border-gray-800 flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-primary/20">
+              <Zap className="w-6 h-6 text-primary" />
+            </div>
+            {(!collapsed || mobileOpen) && (
+              <div className="flex-1">
+                <h1 className="text-xl font-bold text-white tracking-tight">
+                  NeuralConnect
+                </h1>
+                <p className="text-xs text-gray-500">WhatsApp Suite</p>
+              </div>
+            )}
+          </div>
+          {/* Mobile Close Button */}
+          <button
+            className="md:hidden text-gray-400 hover:text-white"
+            onClick={() => setMobileOpen(false)}
           >
-            {({ isActive }) => (
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
+          {navItems.map((item) => (
+            <NavLink
+              key={item.route}
+              to={item.route}
+              onClick={() => setMobileOpen(false)} // Close on navigate (mobile)
+              className={({ isActive }) =>
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${isActive
+                  ? 'bg-primary text-white shadow-soft'
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'
+                }`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <span className={isActive ? 'text-white' : 'group-hover:text-white transition-colors'}>
+                    {item.icon}
+                  </span>
+                  {(!collapsed || mobileOpen) && (
+                    <>
+                      <span className="flex-1 font-medium">{item.label}</span>
+                      {item.badge !== undefined && (
+                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-600 text-white">
+                          {item.badge}
+                        </span>
+                      )}
+                    </>
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        {/* Toggle Button (Desktop Only) */}
+        <div className="p-4 border-t border-gray-800 hidden md:block">
+          <button
+            onClick={() => setCollapsed(!collapsed)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors text-gray-400"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? (
+              <ChevronRight className="w-5 h-5" />
+            ) : (
               <>
-                <span className={isActive ? 'text-white' : 'group-hover:text-white transition-colors'}>
-                  {item.icon}
-                </span>
-                {!collapsed && (
-                  <>
-                    <span className="flex-1 font-medium">{item.label}</span>
-                    {item.badge !== undefined && (
-                      <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-600 text-white">
-                        {item.badge}
-                      </span>
-                    )}
-                  </>
-                )}
+                <ChevronLeft className="w-5 h-5" />
+                <span className="text-sm font-medium">Collapse</span>
               </>
             )}
-          </NavLink>
-        ))}
-      </nav>
-
-      {/* Toggle Button */}
-      <div className="p-4 border-t border-gray-800">
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors text-gray-400"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? (
-            <ChevronRight className="w-5 h-5" />
-          ) : (
-            <>
-              <ChevronLeft className="w-5 h-5" />
-              <span className="text-sm font-medium">Collapse</span>
-            </>
-          )}
-        </button>
-      </div>
-    </aside>
+          </button>
+        </div>
+      </aside>
+    </>
   );
 };
 
