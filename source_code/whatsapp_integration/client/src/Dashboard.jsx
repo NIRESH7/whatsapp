@@ -22,9 +22,7 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
     const [bulkMessageText, setBulkMessageText] = useState('');
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [customTemplates, setCustomTemplates] = useState([]);
-    const [showCreateTemplate, setShowCreateTemplate] = useState(false);
-    const [newTemplateName, setNewTemplateName] = useState('');
-    const [newTemplateLabel, setNewTemplateLabel] = useState('');
+
     const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef(null);
 
@@ -37,16 +35,17 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
         ...customTemplates
     ];
 
-    // Load custom templates from localStorage
+    // Load custom templates from API
     useEffect(() => {
-        const saved = localStorage.getItem('customTemplates');
-        if (saved) {
+        const fetchTemplates = async () => {
             try {
-                setCustomTemplates(JSON.parse(saved));
-            } catch (e) {
-                console.error('Error loading custom templates:', e);
+                const response = await axios.get('http://localhost:3000/api/templates');
+                setCustomTemplates(response.data);
+            } catch (error) {
+                console.error('Error loading templates:', error);
             }
-        }
+        };
+        fetchTemplates();
 
         // Request saved contacts from parent (Main App)
         window.parent.postMessage({ type: 'REQUEST_CONTACTS' }, '*');
@@ -285,33 +284,20 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
         }
     };
 
-    const handleCreateTemplate = () => {
-        if (!newTemplateName.trim() || !newTemplateLabel.trim()) {
-            alert('Please fill in both Template Name and Display Label');
+    const handleDeleteTemplate = async (template) => {
+        if (!confirm('Are you sure you want to permanently delete this template?')) {
             return;
         }
 
-        const newTemplate = {
-            name: newTemplateName.toLowerCase().replace(/\s+/g, '_'),
-            label: newTemplateLabel
-        };
-
-        const updated = [...customTemplates, newTemplate];
-        setCustomTemplates(updated);
-        localStorage.setItem('customTemplates', JSON.stringify(updated));
-
-        setNewTemplateName('');
-        setNewTemplateLabel('');
-        setShowCreateTemplate(false);
-        alert(`Template "${newTemplateLabel}" created successfully!`);
-    };
-
-    const handleDeleteTemplate = (templateName) => {
-        if (confirm('Are you sure you want to permanently delete this template?')) {
-            const updated = customTemplates.filter(t => t.name !== templateName);
-            setCustomTemplates(updated);
-            localStorage.setItem('customTemplates', JSON.stringify(updated));
+        try {
+            await axios.delete(`http://localhost:3000/api/templates/${template.id}`);
+            // Refresh template list
+            const response = await axios.get('http://localhost:3000/api/templates');
+            setCustomTemplates(response.data);
             alert('Template deleted successfully!');
+        } catch (error) {
+            console.error('Error deleting template:', error);
+            alert('Failed to delete template. Please try again.');
         }
     };
 
@@ -640,120 +626,84 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                         <div className="template-panel-header">
                             <button
                                 className="back-panel-btn"
-                                onClick={() => {
-                                    setShowTemplateModal(false);
-                                    setShowCreateTemplate(false);
-                                }}
+                                onClick={() => setShowTemplateModal(false)}
                             >
                                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <polyline points="15 18 9 12 15 6"></polyline>
                                 </svg>
                             </button>
-                            <h3>{showCreateTemplate ? 'Create New Template' : 'Select a Template'}</h3>
-                            <button onClick={() => {
-                                setShowTemplateModal(false);
-                                setShowCreateTemplate(false);
-                            }} className="close-panel-btn">✕</button>
+                            <h3>Select a Template</h3>
+                            <button onClick={() => setShowTemplateModal(false)} className="close-panel-btn">✕</button>
                         </div>
 
-                        {!showCreateTemplate ? (
-                            <>
-                                <div className="template-list">
-                                    {TEMPLATES.map((template) => {
-                                        const isCustom = customTemplates.some(t => t.name === template.name);
-                                        return (
-                                            <div key={template.name} className="template-item-wrapper">
-                                                <button
-                                                    className="template-option-btn"
-                                                    onClick={() => handleSendTemplate(template.name)}
-                                                    disabled={sending}
-                                                >
-                                                    {template.label}
-                                                </button>
-                                                {isCustom && (
-                                                    <button
-                                                        className="template-delete-btn"
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            handleDeleteTemplate(template.name);
-                                                        }}
-                                                        title="Delete template"
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                                <div className="template-panel-footer">
-                                    <button
-                                        className="create-template-btn"
-                                        onClick={() => setShowCreateTemplate(true)}
-                                    >
-                                        + Create New Template
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            <div className="create-template-form">
-                                <div className="form-header">
-                                    <div className="form-icon">
-                                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                                            <polyline points="14 2 14 8 20 8"></polyline>
-                                            <line x1="12" y1="18" x2="12" y2="12"></line>
-                                            <line x1="9" y1="15" x2="15" y2="15"></line>
-                                        </svg>
-                                    </div>
-                                    <div>
-                                        <h4>Create Custom Template</h4>
-                                        <p className="form-subtitle">Design a reusable message template</p>
-                                    </div>
-                                    <button className="ai-assist-btn" onClick={() => alert('AI Assistance coming soon!')} title="Generate with AI">
-                                        <FaMagic /> AI Assist
-                                    </button>
-                                </div>
+                        <div className="template-list">
+                            {TEMPLATES.map((template) => (
+                                <div
+                                    key={template.name}
+                                    onClick={() => !sending && handleSendTemplate(template.name)}
+                                    className="template-item-row"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        padding: '16px',
+                                        backgroundColor: '#f0f2f5',
+                                        border: '1px solid #e0e0e0',
+                                        borderRadius: '8px',
+                                        cursor: sending ? 'wait' : 'pointer',
+                                        transition: 'all 0.2s',
+                                        marginBottom: '0px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#f4f4f5';
+                                        e.currentTarget.style.borderColor = '#d4d4d8';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#f0f2f5';
+                                        e.currentTarget.style.borderColor = '#e0e0e0';
+                                    }}
+                                >
+                                    <span style={{
+                                        fontWeight: 500,
+                                        color: '#111b21',
+                                        fontSize: '1rem',
+                                        flex: 1
+                                    }}>
+                                        {template.label}
+                                    </span>
 
-                                <div className="form-group">
-                                    <label htmlFor="template-name">Template Name</label>
-                                    <input
-                                        id="template-name"
-                                        type="text"
-                                        placeholder="e.g., order_confirmation"
-                                        value={newTemplateName}
-                                        onChange={(e) => setNewTemplateName(e.target.value)}
-                                        className="template-input"
-                                    />
-                                    <span className="input-hint">Use lowercase letters and underscores only</span>
+                                    {customTemplates.some(t => t.name === template.name) && (
+                                        <button
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteTemplate(template.name);
+                                            }}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: '#ef4444',
+                                                padding: '8px',
+                                                borderRadius: '50%',
+                                                cursor: 'pointer',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                marginLeft: '8px',
+                                                transition: 'background-color 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#fee2e2'}
+                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                                            title="Delete Template"
+                                        >
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                <polyline points="3 6 5 6 21 6"></polyline>
+                                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                            </svg>
+                                        </button>
+                                    )}
                                 </div>
-
-                                <div className="form-group">
-                                    <label htmlFor="template-label">Display Label</label>
-                                    <input
-                                        id="template-label"
-                                        type="text"
-                                        placeholder="e.g., Order Confirmation"
-                                        value={newTemplateLabel}
-                                        onChange={(e) => setNewTemplateLabel(e.target.value)}
-                                        className="template-input"
-                                    />
-                                    <span className="input-hint">This name will appear in the template list</span>
-                                </div>
-
-                                <div className="template-form-actions">
-                                    <button onClick={() => setShowCreateTemplate(false)} className="cancel-btn">
-                                        Cancel
-                                    </button>
-                                    <button onClick={handleCreateTemplate} className="save-btn">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                            <polyline points="20 6 9 17 4 12"></polyline>
-                                        </svg>
-                                        Save
-                                    </button>
-                                </div>
-                            </div>
-                        )}
+                            ))}
+                        </div>
                     </div>
                 )
             }

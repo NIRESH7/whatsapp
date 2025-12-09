@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard';
 import Login from './pages/Login';
 import Chat from './pages/Chat';
 
+import TemplateForge from './pages/TemplateForge';
 import Inbox from './pages/Inbox';
 
 const App: React.FC = () => {
@@ -71,7 +72,7 @@ const MainLayout: React.FC = () => {
             <Route path="/" element={<Dashboard />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/inbox" element={<Inbox />} />
-            <Route path="/templates" element={<ComingSoon page="Template Forge" />} />
+            <Route path="/templates" element={<TemplateForge />} />
             <Route path="/clients" element={<ComingSoon page="Client 360" />} />
             <Route path="/alerts" element={<ComingSoon page="System Alerts" />} />
           </Routes>

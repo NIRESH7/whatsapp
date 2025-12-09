@@ -387,6 +387,62 @@ app.post('/send-template', async (req, res) => {
     }
 });
 
+// Get all templates
+app.get('/api/templates', async (req, res) => {
+    try {
+        const result = await pool.query('SELECT * FROM templates ORDER BY created_at DESC');
+        res.json(result.rows);
+    } catch (err) {
+        console.error('Error fetching templates:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Create new template
+app.post('/api/templates', async (req, res) => {
+    const { name, category, language, header, body, footer, buttons } = req.body;
+
+    if (!name || !category || !language || !body) {
+        return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO templates 
+            (name, category, language, header_type, header_content, body_text, footer_text, buttons) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
+            RETURNING *`,
+            [
+                name,
+                category,
+                language,
+                header ? header.type : 'NONE',
+                header ? header.content : null,
+                body,
+                footer,
+                JSON.stringify(buttons)
+            ]
+        );
+        console.log('Template saved:', result.rows[0]);
+        res.json({ success: true, template: result.rows[0] });
+    } catch (err) {
+        console.error('Error saving template:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
+// Delete template
+app.delete('/api/templates/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM templates WHERE id = $1', [id]);
+        res.json({ success: true });
+    } catch (err) {
+        console.error('Error deleting template:', err);
+        res.status(500).json({ error: 'Database error' });
+    }
+});
+
 // Auth Routes
 require('dotenv').config();
 const LocalStrategy = require('passport-local').Strategy;
@@ -419,6 +475,23 @@ pool.query(`
     )
 `).then(() => console.log('Users table ready'))
     .catch(err => console.error('DB Error:', err));
+
+// Create Templates Table
+pool.query(`
+    CREATE TABLE IF NOT EXISTS templates (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        language VARCHAR(10) NOT NULL,
+        header_type VARCHAR(20) DEFAULT 'NONE',
+        header_content TEXT,
+        body_text TEXT NOT NULL,
+        footer_text TEXT,
+        buttons JSONB,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`).then(() => console.log('Templates table ready'))
+    .catch(err => console.error('DB Error (Templates):', err));
 
 // Serialize/Deserialize User
 passport.serializeUser((user, done) => {
