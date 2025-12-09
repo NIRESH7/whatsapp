@@ -8,6 +8,9 @@ const multer = require('multer');
 const FormData = require('form-data');
 const session = require('express-session');
 const passport = require('passport');
+const http = require('http');
+const socketIo = require('socket.io');
+const whatsappWebService = require('./whatsapp-web-service');
 
 const app = express();
 app.use(cors());
@@ -493,6 +496,68 @@ pool.query(`
 `).then(() => console.log('Templates table ready'))
     .catch(err => console.error('DB Error (Templates):', err));
 
+// Create WhatsApp Web Tables
+pool.query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_sessions (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        session_data TEXT,
+        phone_number VARCHAR(255),
+        is_active BOOLEAN DEFAULT true,
+        last_sync TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id)
+    )
+`).then(() => console.log('WhatsApp sessions table ready'))
+    .catch(err => console.error('DB Error (WhatsApp Sessions):', err));
+
+pool.query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_contacts (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        contact_number VARCHAR(255),
+        contact_name VARCHAR(255),
+        profile_pic_url TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, contact_number)
+    )
+`).then(() => console.log('WhatsApp contacts table ready'))
+    .catch(err => console.error('DB Error (WhatsApp Contacts):', err));
+
+pool.query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_chats (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        chat_id VARCHAR(255),
+        contact_number VARCHAR(255),
+        is_group BOOLEAN DEFAULT false,
+        group_name VARCHAR(255),
+        last_message_time TIMESTAMP,
+        unread_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, chat_id)
+    )
+`).then(() => console.log('WhatsApp chats table ready'))
+    .catch(err => console.error('DB Error (WhatsApp Chats):', err));
+
+pool.query(`
+    CREATE TABLE IF NOT EXISTS whatsapp_web_messages (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id),
+        message_id VARCHAR(255) UNIQUE,
+        chat_id VARCHAR(255),
+        sender VARCHAR(255),
+        recipient VARCHAR(255),
+        message_text TEXT,
+        message_type VARCHAR(20),
+        media_url TEXT,
+        is_from_me BOOLEAN DEFAULT false,
+        timestamp TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+`).then(() => console.log('WhatsApp web messages table ready'))
+    .catch(err => console.error('DB Error (WhatsApp Web Messages):', err));
+
 // Serialize/Deserialize User
 passport.serializeUser((user, done) => {
     done(null, user.id);
@@ -554,58 +619,62 @@ passport.use(new LocalStrategy({
 // Google Strategy
 
 // Google Strategy
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID',
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'YOUR_GOOGLE_CLIENT_SECRET',
-    callbackURL: "http://localhost:3000/auth/google/callback"
-},
-    async function (accessToken, refreshToken, profile, cb) {
-        try {
-            // Check if user exists
-            const result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
-            let user = result.rows[0];
+if (process.env.GOOGLE_CLIENT_ID) {
+    passport.use(new GoogleStrategy({
+        clientID: process.env.GOOGLE_CLIENT_ID,
+        clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+        callbackURL: "http://localhost:3000/auth/google/callback"
+    },
+        async function (accessToken, refreshToken, profile, cb) {
+            try {
+                // Check if user exists
+                const result = await pool.query('SELECT * FROM users WHERE google_id = $1', [profile.id]);
+                let user = result.rows[0];
 
-            if (!user) {
-                // Check if user exists with this email (account linking)
-                const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `${profile.id}@google.com`;
-                const name = profile.displayName || 'Google User';
+                if (!user) {
+                    // Check if user exists with this email (account linking)
+                    const email = profile.emails && profile.emails[0] ? profile.emails[0].value : `${profile.id}@google.com`;
+                    const name = profile.displayName || 'Google User';
 
-                const existingUserResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-                const existingUser = existingUserResult.rows[0];
+                    const existingUserResult = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+                    const existingUser = existingUserResult.rows[0];
 
-                if (existingUser) {
-                    // Update existing user with google_id
-                    const updateResult = await pool.query(
-                        'UPDATE users SET google_id = $1 WHERE email = $2 RETURNING *',
-                        [profile.id, email]
-                    );
-                    user = updateResult.rows[0];
-                } else {
-                    // Create new user
-                    const insertResult = await pool.query(
-                        'INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *',
-                        [profile.id, email, name]
-                    );
-                    user = insertResult.rows[0];
+                    if (existingUser) {
+                        // Update existing user with google_id
+                        const updateResult = await pool.query(
+                            'UPDATE users SET google_id = $1 WHERE email = $2 RETURNING *',
+                            [profile.id, email]
+                        );
+                        user = updateResult.rows[0];
+                    } else {
+                        // Create new user
+                        const insertResult = await pool.query(
+                            'INSERT INTO users (google_id, email, name) VALUES ($1, $2, $3) RETURNING *',
+                            [profile.id, email, name]
+                        );
+                        user = insertResult.rows[0];
+                    }
                 }
+                return cb(null, user);
+            } catch (err) {
+                return cb(err);
             }
-            return cb(null, user);
-        } catch (err) {
-            return cb(err);
         }
-    }
-));
+    ));
+}
 
 // GitHub Strategy
-passport.use(new GitHubStrategy({
-    clientID: process.env.GITHUB_CLIENT_ID || 'YOUR_GITHUB_CLIENT_ID',
-    clientSecret: process.env.GITHUB_CLIENT_SECRET || 'YOUR_GITHUB_CLIENT_SECRET',
-    callbackURL: "http://localhost:3000/auth/github/callback"
-},
-    function (accessToken, refreshToken, profile, done) {
-        return done(null, profile);
-    }
-));
+if (process.env.GITHUB_CLIENT_ID) {
+    passport.use(new GitHubStrategy({
+        clientID: process.env.GITHUB_CLIENT_ID,
+        clientSecret: process.env.GITHUB_CLIENT_SECRET,
+        callbackURL: "http://localhost:3000/auth/github/callback"
+    },
+        function (accessToken, refreshToken, profile, done) {
+            return done(null, profile);
+        }
+    ));
+}
 
 // Google Routes
 app.get('/auth/google',
@@ -724,6 +793,272 @@ app.get('/api/logout', (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-    console.log(`Server is listening on port ${PORT}`);
+
+// Create HTTP server for Socket.IO
+const server = http.createServer(app);
+const io = socketIo(server, {
+    cors: {
+        origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+        credentials: true,
+        methods: ['GET', 'POST']
+    },
+    transports: ['websocket', 'polling']
 });
+
+// Socket.IO Connection Handler
+io.on('connection', (socket) => {
+    console.log('[Socket.IO] Client connected:', socket.id);
+
+    // Join user-specific room
+    socket.on('join-room', (userId) => {
+        socket.join(`user-${userId}`);
+        console.log(`[Socket.IO] User ${userId} joined room`);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('[Socket.IO] Client disconnected:', socket.id);
+    });
+});
+
+// ============ WhatsApp Web Endpoints ============
+
+// Initialize WhatsApp Web session
+app.post('/api/whatsapp-web/init', async (req, res) => {
+    const userId = req.user?.id || 1; // Default to user 1 for testing
+
+    try {
+        await whatsappWebService.initializeClient(userId, io);
+        res.json({ success: true, message: 'WhatsApp Web client initialized' });
+    } catch (error) {
+        console.error('[API] Error initializing WhatsApp Web:', error);
+        res.status(500).json({ error: 'Failed to initialize' });
+    }
+});
+
+// Check WhatsApp Web status
+app.get('/api/whatsapp-web/status', async (req, res) => {
+    const userId = req.user?.id || 1;
+
+    try {
+        const client = whatsappWebService.getClient(userId);
+        const isActive = client ? true : false;
+        const isReady = whatsappWebService.isClientReady(userId);
+
+        // Check database for session
+        const result = await pool.query(
+            'SELECT phone_number, last_sync, is_active FROM whatsapp_sessions WHERE user_id = $1',
+            [userId]
+        );
+
+        res.json({
+            connected: isActive,
+            ready: isReady,
+            session: result.rows[0] || null
+        });
+    } catch (error) {
+        console.error('[API] Error checking status:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Sync chat history
+app.post('/api/whatsapp-web/sync', async (req, res) => {
+    const userId = req.user?.id || 1;
+
+    try {
+        // Start sync in background
+        whatsappWebService.syncChatHistory(userId, io).catch(err => {
+            console.error('[API] Sync error:', err);
+        });
+        res.json({ success: true, message: 'Sync started' });
+    } catch (error) {
+        console.error('[API] Error starting sync:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get synced messages
+app.get('/api/whatsapp-web/messages', async (req, res) => {
+    const userId = req.user?.id || 1;
+    const { chatId } = req.query;
+
+    try {
+        let query = `SELECT * FROM whatsapp_web_messages WHERE user_id = $1`;
+        let params = [userId];
+
+        if (chatId) {
+            query += ` AND chat_id = $2`;
+            params.push(chatId);
+        }
+
+        query += ` ORDER BY timestamp DESC LIMIT 1000`;
+
+        const result = await pool.query(query, params);
+        res.json(result.rows);
+    } catch (error) {
+        console.error('[API] Error fetching messages:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get synced contacts
+app.get('/api/whatsapp-web/contacts', async (req, res) => {
+    const userId = req.user?.id || 1;
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM whatsapp_contacts WHERE user_id = $1 ORDER BY contact_name',
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('[API] Error fetching contacts:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get synced chats
+app.get('/api/whatsapp-web/chats', async (req, res) => {
+    const userId = req.user?.id || 1;
+
+    try {
+        const result = await pool.query(
+            'SELECT * FROM whatsapp_chats WHERE user_id = $1 ORDER BY last_message_time DESC',
+            [userId]
+        );
+        res.json(result.rows);
+    } catch (error) {
+        console.error('[API] Error fetching chats:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Disconnect WhatsApp Web
+app.post('/api/whatsapp-web/disconnect', async (req, res) => {
+    const userId = req.user?.id || 1;
+
+    try {
+        await whatsappWebService.disconnectClient(userId);
+        res.json({ success: true, message: 'Disconnected' });
+    } catch (error) {
+        console.error('[API] Error disconnecting:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// WhatsApp Business API - Get conversations (Refactored for WhatsApp Web Sync)
+app.get('/api/whatsapp-business/conversations', async (req, res) => {
+    const userId = req.user?.id || 1;
+    try {
+        const result = await pool.query(`
+            SELECT 
+                wc.contact_number, 
+                COALESCE(
+                    NULLIF(wcon.contact_name, ''),
+                    NULLIF(wc.group_name, ''),
+                    wc.contact_number
+                ) as display_name,
+                wc.last_message_time,
+                wc.is_group
+            FROM whatsapp_chats wc
+            LEFT JOIN whatsapp_contacts wcon ON wc.contact_number = wcon.contact_number AND wc.user_id = wcon.user_id
+            WHERE wc.user_id = $1
+            ORDER BY wc.last_message_time DESC NULLS LAST
+        `, [userId]);
+
+        const contacts = result.rows.map(row => ({
+            number: row.contact_number,
+            name: row.display_name || row.contact_number,
+            lastMessageTime: row.last_message_time ? row.last_message_time.toISOString() : null,
+            isGroup: row.is_group
+        }));
+
+        res.json(contacts);
+    } catch (error) {
+        console.error('[API] Error fetching conversations:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// WhatsApp Business API - Get messages for a specific contact
+app.get('/api/whatsapp-business/messages/:phoneNumber', async (req, res) => {
+    const { phoneNumber } = req.params;
+    const userId = req.user?.id || 1;
+
+    try {
+        // Query synced messages from DB
+        const result = await pool.query(
+            `SELECT * FROM whatsapp_web_messages 
+             WHERE user_id = $1 AND (chat_id LIKE $2 OR sender LIKE $2)
+             ORDER BY timestamp ASC`,
+            [userId, `%${phoneNumber}%`]
+        );
+
+        const formattedMessages = result.rows.map(msg => ({
+            id: msg.message_id,
+            sender: msg.is_from_me ? 'Me' : (msg.sender && msg.sender.includes('@') ? msg.sender.split('@')[0] : msg.sender),
+            recipient: msg.is_from_me ? (msg.chat_id && msg.chat_id.includes('@') ? msg.chat_id.split('@')[0] : msg.chat_id) : 'Me',
+            text: msg.message_text,
+            time: new Date(msg.timestamp).toLocaleTimeString(),
+            timestamp: msg.timestamp,
+            type: msg.is_from_me ? 'sent' : 'received',
+            mediaUrl: null, // Basic text support for now
+            read: true
+        }));
+
+        res.json(formattedMessages);
+    } catch (error) {
+        console.error('[API] Error fetching messages:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// WhatsApp Business API - Get all messages (for unread counts)
+app.get('/api/whatsapp-business/messages', async (req, res) => {
+    const userId = req.user?.id || 1;
+    try {
+        const result = await pool.query(
+            `SELECT * FROM whatsapp_web_messages WHERE user_id = $1 ORDER BY timestamp DESC LIMIT 5000`,
+            [userId]
+        );
+
+        const formattedMessages = result.rows.map(msg => ({
+            id: msg.message_id,
+            sender: msg.is_from_me ? 'Me' : (msg.sender && msg.sender.includes('@') ? msg.sender.split('@')[0] : msg.sender),
+            recipient: msg.is_from_me ? (msg.chat_id && msg.chat_id.includes('@') ? msg.chat_id.split('@')[0] : msg.chat_id) : 'Me',
+            text: msg.message_text,
+            timestamp: msg.timestamp,
+            type: msg.is_from_me ? 'sent' : 'received',
+            read: true // Default to true as read receipts are complex
+        }));
+
+        res.json(formattedMessages);
+    } catch (error) {
+        console.error('[API] Error fetching all messages:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Send message via WhatsApp Web
+app.post('/api/whatsapp-web/send', async (req, res) => {
+    const userId = req.user?.id || 1;
+    const { phoneNumber, message } = req.body;
+
+    if (!phoneNumber || !message) {
+        return res.status(400).json({ error: 'Phone number and message are required' });
+    }
+
+    try {
+        await whatsappWebService.sendMessage(userId, phoneNumber, message);
+        res.json({ success: true, message: 'Message sent successfully' });
+    } catch (error) {
+        console.error('[API] Error sending message via WhatsApp Web:', error);
+        res.status(500).json({ error: error.message || 'Failed to send message' });
+    }
+});
+
+server.listen(PORT, () => {
+    console.log(`Server is listening on port ${PORT}`);
+    console.log(`Socket.IO is ready for WhatsApp Web connections`);
+});
+

@@ -1,0 +1,343 @@
+.whatsapp-connect-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #128C7E 0%, #075E54 100%);
+    padding: 20px;
+}
+
+.connect-card {
+    background: white;
+    border-radius: 24px;
+    padding: 48px;
+    max-width: 650px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.whatsapp-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+}
+
+.connect-card h1 {
+    color: #075E54;
+    margin: 0 0 12px 0;
+    font-size: 32px;
+    font-weight: 700;
+}
+
+.subtitle {
+    color: #667781;
+    font-size: 16px;
+    margin: 0;
+}
+
+.qr-section {
+    text-align: center;
+    margin: 30px 0;
+}
+
+.qr-code {
+    width: 300px;
+    height: 300px;
+    margin: 0 auto 30px;
+    border: 3px solid #25D366;
+    border-radius: 16px;
+    padding: 16px;
+    background: white;
+    box-shadow: 0 8px 24px rgba(37, 211, 102, 0.2);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        box-shadow: 0 8px 24px rgba(37, 211, 102, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 8px 32px rgba(37, 211, 102, 0.4);
+    }
+}
+
+.instructions {
+    text-align: left;
+    background: #F0F2F5;
+    padding: 24px;
+    border-radius: 12px;
+    margin-top: 24px;
+}
+
+.instructions h3 {
+    margin: 0 0 16px 0;
+    color: #075E54;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.instructions ol {
+    margin: 0;
+    padding-left: 24px;
+}
+
+.instructions li {
+    margin: 10px 0;
+    color: #3B4A54;
+    font-size: 15px;
+    line-height: 1.5;
+}
+
+.instructions strong {
+    color: #075E54;
+    font-weight: 600;
+}
+
+.status-section {
+    text-align: center;
+    margin-top: 32px;
+}
+
+.status-indicator {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.spinner {
+    width: 24px;
+    height: 24px;
+    border: 3px solid #E9EDEF;
+    border-top-color: #25D366;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.status-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 16px;
+}
+
+.status-icon.success {
+    background: #25D366;
+    color: white;
+}
+
+.status-icon.error {
+    background: #DC3545;
+    color: white;
+}
+
+.status {
+    font-size: 18px;
+    color: #3B4A54;
+    font-weight: 600;
+    margin: 0;
+}
+
+.sync-button {
+    background: linear-gradient(135deg, #25D366 0%, #20BA5A 100%);
+    color: white;
+    border: none;
+    padding: 16px 40px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.sync-button:hover {
+    background: linear-gradient(135deg, #20BA5A 0%, #1DA851 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+}
+
+.sync-button:active {
+    transform: translateY(0);
+}
+
+.progress-section {
+    margin-top: 24px;
+    padding: 24px;
+    background: #F0F2F5;
+    border-radius: 12px;
+}
+
+.progress-section h3 {
+    color: #075E54;
+    margin: 0 0 20px 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.progress-stats {
+    display: flex;
+    justify-content: space-around;
+    margin-bottom: 20px;
+}
+
+.stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.stat-label {
+    color: #667781;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.stat-value {
+    color: #075E54;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 12px;
+    background: #E9EDEF;
+    border-radius: 6px;
+    overflow: hidden;
+    position: relative;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #25D366, #20BA5A);
+    transition: width 0.3s ease;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+}
+
+.progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg,
+            transparent,
+            rgba(255, 255, 255, 0.3),
+            transparent);
+    animation: shimmer 1.5s infinite;
+}
+
+@keyframes shimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+.qr-button-section {
+    text-align: center;
+    margin: 40px 0;
+}
+
+.generate-qr-button {
+    background: linear-gradient(135deg, #25D366 0%, #20BA5A 100%);
+    color: white;
+    border: none;
+    padding: 18px 48px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.generate-qr-button:hover:not(:disabled) {
+    background: linear-gradient(135deg, #20BA5A 0%, #1DA851 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(37, 211, 102, 0.4);
+}
+
+.generate-qr-button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.generate-qr-button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.generate-qr-button svg {
+    width: 24px;
+    height: 24px;
+}
+
+@media (max-width: 768px) {
+    .connect-card {
+        padding: 32px 24px;
+    }
+
+    .connect-card h1 {
+        font-size: 24px;
+    }
+
+    .qr-code {
+        width: 250px;
+        height: 250px;
+    }
+
+    .instructions {
+        padding: 20px;
+    }
+
+    .generate-qr-button {
+        padding: 16px 36px;
+        font-size: 16px;
+    }
+}

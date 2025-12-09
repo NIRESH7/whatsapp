@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
+import { io } from 'socket.io-client';
 import { read, utils } from 'xlsx';
 import './Dashboard.css';
 
@@ -22,6 +23,12 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
     const [bulkMessageText, setBulkMessageText] = useState('');
     const [showTemplateModal, setShowTemplateModal] = useState(false);
     const [customTemplates, setCustomTemplates] = useState([]);
+
+    // WhatsApp Web State
+    const [socket, setSocket] = useState(null);
+    const [qrCode, setQrCode] = useState('');
+    const [connectionStatus, setConnectionStatus] = useState('disconnected'); // disconnected, qr_received, authenticated, ready
+    const [showConnectionModal, setShowConnectionModal] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
     const fileInputRef = useRef(null);
@@ -67,13 +74,128 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
         }
     }, [uploadedContacts]);
 
-    // Poll for new messages every 2 seconds
+    // Sync uploaded contacts to parent (Main App) for persistence
+    useEffect(() => {
+        if (uploadedContacts.length > 0) {
+            window.parent.postMessage({ type: 'SAVE_CONTACTS', contacts: uploadedContacts }, '*');
+        }
+    }, [uploadedContacts]);
+
+    // Initialize Socket.IO for WhatsApp Web
+    useEffect(() => {
+        const newSocket = io('http://localhost:3000');
+        setSocket(newSocket);
+
+        newSocket.on('connect', () => {
+            console.log('Socket connected');
+            // Join room for user 1 (hardcoded for now to match backend default)
+            newSocket.emit('join-room', 1);
+        });
+
+        newSocket.on('qr-code', (qr) => {
+            console.log('QR Code received');
+            setQrCode(qr);
+            setConnectionStatus('qr_received');
+            setShowConnectionModal(true);
+        });
+
+        newSocket.on('authenticated', () => {
+            console.log('WhatsApp Authenticated');
+            setConnectionStatus('authenticated');
+        });
+
+        newSocket.on('ready', async () => {
+            console.log('WhatsApp Ready');
+            setConnectionStatus('ready');
+            setQrCode('');
+            setShowConnectionModal(false);
+            alert('WhatsApp Connected! Syncing chats...');
+
+            // Trigger Sync
+            try {
+                await axios.post('http://localhost:3000/api/whatsapp-web/sync');
+                console.log('Sync started');
+            } catch (err) {
+                console.error('Error starting sync:', err);
+            }
+        });
+
+        return () => newSocket.close();
+    }, []);
+
+    const connectWhatsApp = async () => {
+        // Prevent multiple attempts
+        if (connectionStatus !== 'disconnected' && connectionStatus !== 'auth-failure') {
+            setShowConnectionModal(true);
+            return;
+        }
+
+        setShowConnectionModal(true);
+        try {
+            await axios.post('http://localhost:3000/api/whatsapp-web/init');
+        } catch (error) {
+            console.error('Error initializing WhatsApp:', error);
+            alert('Failed to initialize WhatsApp connection.');
+        }
+    };
+
+    // Check initial status
+    useEffect(() => {
+        const checkStatus = async () => {
+            try {
+                const response = await axios.get('http://localhost:3000/api/whatsapp-web/status');
+                if (response.data.ready) {
+                    setConnectionStatus('ready');
+                } else if (response.data.connected) {
+                    setConnectionStatus('authenticated');
+                }
+            } catch (error) {
+                console.error('Error checking WhatsApp status:', error);
+            }
+        };
+        checkStatus();
+    }, []);
+
+    // Poll for new messages every 2 seconds (includes both API messages and WhatsApp Web messages)
     useEffect(() => {
         const fetchMessages = async () => {
             try {
-                const response = await axios.get('http://localhost:3000/messages');
-                const fetchedMessages = response.data;
-                setMessages(fetchedMessages);
+                // Fetch regular API messages
+                const apiResponse = await axios.get('http://localhost:3000/messages');
+                const apiMessages = apiResponse.data;
+
+                // Fetch WhatsApp Web synced messages
+                let whatsappWebMessages = [];
+                try {
+                    const waResponse = await axios.get('http://localhost:3000/api/whatsapp-web/messages');
+                    whatsappWebMessages = waResponse.data.map(msg => ({
+                        id: msg.message_id,
+                        sender: msg.is_from_me ? 'Me' : msg.sender,
+                        recipient: msg.is_from_me ? msg.chat_id.split('@')[0] : 'Me',
+                        text: msg.message_text,
+                        time: new Date(msg.timestamp).toLocaleTimeString(),
+                        timestamp: msg.timestamp,
+                        type: msg.is_from_me ? 'sent' : 'received',
+                        mediaUrl: msg.media_url,
+                        read: true // WhatsApp Web messages are already read
+                    }));
+                } catch (waError) {
+                    // WhatsApp Web might not be connected yet, that's okay
+                    console.log('WhatsApp Web messages not available:', waError.message);
+                }
+
+                // Merge both message sources
+                const allMessages = [...apiMessages, ...whatsappWebMessages];
+
+                // Remove duplicates based on message ID
+                const uniqueMessages = Array.from(
+                    new Map(allMessages.map(msg => [msg.id, msg])).values()
+                );
+
+                // Sort by timestamp
+                uniqueMessages.sort((a, b) => new Date(a.timestamp || 0) - new Date(b.timestamp || 0));
+
+                setMessages(uniqueMessages);
             } catch (error) {
                 console.error('Error fetching messages:', error);
             }
@@ -83,6 +205,32 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
         const interval = setInterval(fetchMessages, 2000);
         return () => clearInterval(interval);
     }, []);
+
+    // Fetch WhatsApp Web contacts and merge with uploaded contacts
+    useEffect(() => {
+        const fetchWhatsAppContacts = async () => {
+            try {
+                const response = await axios.get('http://localhost:3000/api/whatsapp-web/contacts');
+                const waContacts = response.data.map(c => ({
+                    name: c.contact_name || c.contact_number,
+                    number: c.contact_number,
+                    type: 'whatsapp-web'
+                }));
+
+                // Merge with existing uploaded contacts (avoid duplicates)
+                setUploadedContacts(prev => {
+                    const existingNumbers = new Set(prev.map(c => c.number));
+                    const newContacts = waContacts.filter(c => !existingNumbers.has(c.number));
+                    return [...prev, ...newContacts];
+                });
+            } catch (error) {
+                console.log('WhatsApp Web contacts not available:', error.message);
+            }
+        };
+
+        fetchWhatsAppContacts();
+    }, []);
+
 
     // Derive unique contacts from messages and uploaded list
     const contacts = useMemo(() => {
@@ -337,7 +485,6 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
         const contact = uploadedContacts.find(c => c.number === number);
         return contact ? contact.name : number;
     };
-
     return (
         <div className={`dashboard-container ${isDarkMode ? 'dark-mode' : ''}`}>
             {/* Sidebar: Contact List */}
@@ -345,24 +492,34 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                 <div className="sidebar-header">
                     <h2>Messages</h2>
                     <div className="header-actions">
+                        <button
+                            className="icon-btn"
+                            title={connectionStatus === 'ready' ? "WhatsApp Connected" : "Connect WhatsApp"}
+                            onClick={connectWhatsApp}
+                            style={{ color: connectionStatus === 'ready' ? '#25D366' : 'inherit' }}
+                        >
+                            <span style={{ fontSize: '1.2rem' }}>{connectionStatus === 'ready' ? '📱' : '🔗'}</span>
+                        </button>
 
                         {/* Theme Toggle Removed - Controlled by Main App */}
-                        {isSelectionMode && (
-                            <button
-                                className="icon-btn"
-                                title="Select All"
-                                onClick={() => {
-                                    if (selectedContacts.size === filteredContacts.length) {
-                                        setSelectedContacts(new Set());
-                                    } else {
-                                        const allIds = new Set(filteredContacts.map(c => c.number));
-                                        setSelectedContacts(allIds);
-                                    }
-                                }}
-                            >
-                                <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>ALL</span>
-                            </button>
-                        )}
+                        {
+                            isSelectionMode && (
+                                <button
+                                    className="icon-btn"
+                                    title="Select All"
+                                    onClick={() => {
+                                        if (selectedContacts.size === filteredContacts.length) {
+                                            setSelectedContacts(new Set());
+                                        } else {
+                                            const allIds = new Set(filteredContacts.map(c => c.number));
+                                            setSelectedContacts(allIds);
+                                        }
+                                    }}
+                                >
+                                    <span style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>ALL</span>
+                                </button>
+                            )
+                        }
                         <button
                             className={`icon-btn ${isSelectionMode ? 'active' : ''}`}
                             title={isSelectionMode ? "Cancel Selection" : "Select Contacts"}
@@ -380,8 +537,8 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                         >
                             <span>✎</span>
                         </button>
-                    </div>
-                </div>
+                    </div >
+                </div >
 
                 {isNewChatOpen && (
                     <div className="new-chat-modal">
@@ -421,13 +578,15 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                     </button>
                 </div>
 
-                {selectedContacts.size > 0 && (
-                    <div className="bulk-action-bar">
-                        <button onClick={() => setShowBulkModal(true)}>
-                            Send to {selectedContacts.size} contacts
-                        </button>
-                    </div>
-                )}
+                {
+                    selectedContacts.size > 0 && (
+                        <div className="bulk-action-bar">
+                            <button onClick={() => setShowBulkModal(true)}>
+                                Send to {selectedContacts.size} contacts
+                            </button>
+                        </div>
+                    )
+                }
 
                 <div className="contact-list">
                     {filteredContacts.length === 0 ? (
@@ -481,122 +640,123 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                         ))
                     )}
                 </div>
-            </div>
+            </div >
 
             {/* Main: Chat Window */}
-            <div className={`chat-window ${activeContact ? 'visible-mobile' : ''}`}>
-                {activeContact ? (
-                    <>
-                        <div className="chat-header">
-                            <button
-                                className="back-btn-mobile icon-btn"
-                                onClick={() => setActiveContact(null)}
-                                style={{ marginRight: '10px', display: 'none' }} // Hidden by default, shown in mobile css
-                            >
-                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
-                            </button>
-                            <div className="chat-header-avatar">
-                                {getDisplayName(activeContact).charAt(0).toUpperCase()}
-                            </div>
-                            <div className="chat-header-info">
-                                <h3>{getDisplayName(activeContact)}</h3>
-                                <span>{activeContact}</span>
-                            </div>
-                        </div>
-
-                        <div className="message-list">
-                            {activeMessages.length === 0 ? (
-                                <div className="no-messages">
-                                    <p>Start a conversation with {getDisplayName(activeContact)}</p>
-
-                                </div>
-                            ) : (
-                                activeMessages.map((msg, index) => {
-                                    console.log('Rendering message:', msg);
-                                    return (
-                                        <div key={index} className={`message-item ${msg.type === 'sent' ? 'sent' : 'received'}`}>
-                                            {/* Render Media */}
-                                            {msg.mediaUrl && (
-                                                <div className="message-media-container">
-                                                    <div className="message-media">
-                                                        {msg.type === 'image' && <img src={msg.mediaUrl} alt="Media" />}
-                                                        {msg.type === 'video' && <video controls src={msg.mediaUrl} />}
-                                                        {msg.type === 'audio' && <audio controls src={msg.mediaUrl} />}
-                                                        {msg.type === 'document' && (
-                                                            <div className="document-preview">
-                                                                <span className="doc-icon">📄</span>
-                                                                <span className="doc-name">Document</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <a
-                                                        href={msg.mediaUrl}
-                                                        download
-                                                        className="media-download-btn"
-                                                        title="Download"
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                    >
-                                                        <FaDownload />
-                                                    </a>
-                                                </div>
-                                            )}
-
-                                            {/* Render Text */}
-                                            {msg.text && <div className="message-text">{msg.text}</div>}
-
-                                            <div className="message-time">{msg.time}</div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-
-                        <div className="chat-input-area">
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                style={{ display: 'none' }}
-                                onChange={handleFileSelect}
-                            />
-                            <div className="input-wrapper">
-                                <textarea
-                                    placeholder="Type a message..."
-                                    value={inputMessage}
-                                    onChange={(e) => setInputMessage(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === 'Enter' && !e.shiftKey) {
-                                            e.preventDefault();
-                                            handleSendMessage();
-                                        }
-                                    }}
-                                />
+            < div className={`chat-window ${activeContact ? 'visible-mobile' : ''}`}>
+                {
+                    activeContact ? (
+                        <>
+                            <div className="chat-header">
                                 <button
-                                    className="icon-btn attachment-btn-inside"
-                                    onClick={() => fileInputRef.current.click()}
-                                    disabled={isUploading || sending}
-                                    title="Attach File"
+                                    className="back-btn-mobile icon-btn"
+                                    onClick={() => setActiveContact(null)}
+                                    style={{ marginRight: '10px', display: 'none' }} // Hidden by default, shown in mobile css
                                 >
-                                    <FaPaperclip />
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
                                 </button>
+                                <div className="chat-header-avatar">
+                                    {getDisplayName(activeContact).charAt(0).toUpperCase()}
+                                </div>
+                                <div className="chat-header-info">
+                                    <h3>{getDisplayName(activeContact)}</h3>
+                                    <span>{activeContact}</span>
+                                </div>
                             </div>
-                            <div className="action-buttons">
-                                <button onClick={handleSendMessage} disabled={sending}>
-                                    {sending ? '...' : 'Send'}
-                                </button>
-                                <button onClick={() => setShowTemplateModal(true)} disabled={sending} className="template-btn">
-                                    Template
-                                </button>
+
+                            <div className="message-list">
+                                {activeMessages.length === 0 ? (
+                                    <div className="no-messages">
+                                        <p>Start a conversation with {getDisplayName(activeContact)}</p>
+
+                                    </div>
+                                ) : (
+                                    activeMessages.map((msg, index) => {
+                                        console.log('Rendering message:', msg);
+                                        return (
+                                            <div key={index} className={`message-item ${msg.type === 'sent' ? 'sent' : 'received'}`}>
+                                                {/* Render Media */}
+                                                {msg.mediaUrl && (
+                                                    <div className="message-media-container">
+                                                        <div className="message-media">
+                                                            {msg.type === 'image' && <img src={msg.mediaUrl} alt="Media" />}
+                                                            {msg.type === 'video' && <video controls src={msg.mediaUrl} />}
+                                                            {msg.type === 'audio' && <audio controls src={msg.mediaUrl} />}
+                                                            {msg.type === 'document' && (
+                                                                <div className="document-preview">
+                                                                    <span className="doc-icon">📄</span>
+                                                                    <span className="doc-name">Document</span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <a
+                                                            href={msg.mediaUrl}
+                                                            download
+                                                            className="media-download-btn"
+                                                            title="Download"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            <FaDownload />
+                                                        </a>
+                                                    </div>
+                                                )}
+
+                                                {/* Render Text */}
+                                                {msg.text && <div className="message-text">{msg.text}</div>}
+
+                                                <div className="message-time">{msg.time}</div>
+                                            </div>
+                                        );
+                                    })
+                                )}
                             </div>
+
+                            <div className="chat-input-area">
+                                <input
+                                    type="file"
+                                    ref={fileInputRef}
+                                    style={{ display: 'none' }}
+                                    onChange={handleFileSelect}
+                                />
+                                <div className="input-wrapper">
+                                    <textarea
+                                        placeholder="Type a message..."
+                                        value={inputMessage}
+                                        onChange={(e) => setInputMessage(e.target.value)}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' && !e.shiftKey) {
+                                                e.preventDefault();
+                                                handleSendMessage();
+                                            }
+                                        }}
+                                    />
+                                    <button
+                                        className="icon-btn attachment-btn-inside"
+                                        onClick={() => fileInputRef.current.click()}
+                                        disabled={isUploading || sending}
+                                        title="Attach File"
+                                    >
+                                        <FaPaperclip />
+                                    </button>
+                                </div>
+                                <div className="action-buttons">
+                                    <button onClick={handleSendMessage} disabled={sending}>
+                                        {sending ? '...' : 'Send'}
+                                    </button>
+                                    <button onClick={() => setShowTemplateModal(true)} disabled={sending} className="template-btn">
+                                        Template
+                                    </button>
+                                </div>
+                            </div>
+                        </>
+                    ) : (
+                        <div className="welcome-screen">
+                            <h2>Welcome to WhatsApp Dashboard</h2>
+                            <p>Select a contact to start messaging</p>
                         </div>
-                    </>
-                ) : (
-                    <div className="welcome-screen">
-                        <h2>Welcome to WhatsApp Dashboard</h2>
-                        <p>Select a contact to start messaging</p>
-                    </div>
-                )}
-            </div>
+                    )}
+            </div >
             {/* Bulk Message Modal */}
             {
                 showBulkModal && (
@@ -703,6 +863,40 @@ const Dashboard = ({ isDarkMode, toggleTheme }) => {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )
+            }
+
+            {/* WhatsApp Connection Modal */}
+            {
+                showConnectionModal && (
+                    <div className="bulk-modal-overlay">
+                        <div className="bulk-modal" style={{ textAlign: 'center' }}>
+                            <h3>Connect WhatsApp</h3>
+                            <p>Scan the QR code with your WhatsApp mobile app to sync chats.</p>
+
+                            {qrCode ? (
+                                <div style={{ margin: '20px 0' }}>
+                                    <img src={qrCode} alt="WhatsApp QR Code" style={{ width: '250px', height: '250px' }} />
+                                </div>
+                            ) : (
+                                <div style={{ margin: '20px 0', padding: '20px' }}>
+                                    {connectionStatus === 'authenticated' ? 'Authenticated! Getting ready...' : (
+                                        <div className="loading-state">
+                                            <div className="spinner"></div>
+                                            <p>Generating QR Code...</p>
+                                            <small style={{ color: '#666', display: 'block', marginTop: '10px' }}>
+                                                Status: {socket?.connected ? 'Connected' : 'Disconnected'}<br />
+                                                Socket ID: {socket?.id || 'None'}<br />
+                                                Waiting for server...
+                                            </small>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <button onClick={() => setShowConnectionModal(false)} className="cancel-btn">Close</button>
                         </div>
                     </div>
                 )

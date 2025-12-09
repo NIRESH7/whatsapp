@@ -8,6 +8,7 @@ import Chat from './pages/Chat';
 
 import TemplateForge from './pages/TemplateForge';
 import Inbox from './pages/Inbox';
+import WhatsAppConnect from './pages/WhatsAppConnect';
 
 const App: React.FC = () => {
   React.useEffect(() => {
@@ -70,6 +71,7 @@ const MainLayout: React.FC = () => {
         <div className="flex-1 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/whatsapp-connect" element={<WhatsAppConnect />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/inbox" element={<Inbox />} />
             <Route path="/templates" element={<TemplateForge />} />
