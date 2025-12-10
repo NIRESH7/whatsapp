@@ -43,9 +43,22 @@ const Header: React.FC = () => {
           </div>
 
           <button
-            onClick={() => {
+            onClick={async () => {
+              try {
+                // Call logout API to clear WhatsApp data
+                await fetch('http://localhost:3000/api/logout', {
+                  method: 'GET',
+                  credentials: 'include'
+                });
+              } catch (err) {
+                console.error('Logout API error:', err);
+              }
+              
+              // Clear local storage
               localStorage.removeItem('isAuthenticated');
-              localStorage.removeItem('whatsapp_contacts'); // Clear persisted contacts
+              localStorage.removeItem('whatsapp_contacts');
+              
+              // Redirect to login
               window.location.href = 'http://localhost:5175';
             }}
             className="p-2 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/40 transition-colors"

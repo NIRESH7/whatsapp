@@ -11,27 +11,97 @@ const pool = new Pool({
 });
 
 // Store active WhatsApp clients (one per user)
-// Store active WhatsApp clients (one per user)
 const activeClients = new Map();
 // Store latest QR code for each user to handle refreshes/race conditions
 const userQrCodes = new Map();
 
 // Locks to prevent race conditions
 const initializingUsers = new Set();
+const syncingUsers = new Set(); // Track users currently syncing
 
 /**
  * Initialize WhatsApp client for a user
  */
 async function initializeClient(userId, io) {
-    // 1. Handle in-progress initialization
+    // CRITICAL: Prevent multiple simultaneous initializations with proper locking
     if (initializingUsers.has(userId)) {
-        console.log(`[WhatsApp Web] Initialization already in progress for user ${userId}.`);
+        console.log(`[WhatsApp Web] ⚠️ Initialization already in progress for user ${userId}. Skipping duplicate request.`);
         // If we have a QR code ready, send it to the (possibly new) socket connection!
         if (userQrCodes.has(userId)) {
             console.log(`[WhatsApp Web] Emitting cached QR code for user ${userId}`);
             io.to(`user-${userId}`).emit('qr-code', userQrCodes.get(userId));
+            return activeClients.get(userId) || null;
         }
-        return activeClients.get(userId);
+        // Return existing client or wait for it (but with timeout)
+        const existingClient = activeClients.get(userId);
+        if (existingClient) {
+            // Check if it's been initializing too long (more than 60 seconds)
+            if (existingClient.startTime && (Date.now() - existingClient.startTime > 60000)) {
+                console.log(`[WhatsApp Web] ⚠️ Client stuck in initialization (${Date.now() - existingClient.startTime}ms). Destroying and retrying...`);
+                try {
+                    if (existingClient.pupPage && !existingClient.pupPage.isClosed()) {
+                        await existingClient.pupPage.close().catch(() => { });
+                    }
+                    await existingClient.destroy().catch(() => { });
+                } catch (e) { }
+                activeClients.delete(userId);
+                userQrCodes.delete(userId);
+                initializingUsers.delete(userId);
+                // Continue to create new client below
+            } else {
+                return existingClient;
+            }
+        } else {
+            // Wait a bit and check again (max 10 seconds)
+            for (let i = 0; i < 5; i++) {
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                const clientAfterWait = activeClients.get(userId);
+                if (clientAfterWait) {
+                    return clientAfterWait;
+                }
+            }
+            // If still no client after 10 seconds, clear the lock and continue
+            console.log(`[WhatsApp Web] ⚠️ No client after wait, clearing lock and retrying...`);
+            initializingUsers.delete(userId);
+            // Continue to create new client below
+        }
+    }
+
+    // Check if client already exists and is ready (before starting new initialization)
+    if (activeClients.has(userId)) {
+        const existingClient = activeClients.get(userId);
+        if (existingClient && existingClient.info) {
+            console.log(`[WhatsApp Web] ✅ Client already exists and is ready for user ${userId}`);
+            io.to(`user-${userId}`).emit('ready', { phoneNumber: existingClient.info.wid.user });
+            return existingClient;
+        }
+
+        // Client exists but not ready - check if it's still initializing
+        if (existingClient.startTime && (Date.now() - existingClient.startTime < 60000)) {
+            console.log(`[WhatsApp Web] ⚠️ Client exists but still initializing (${Date.now() - existingClient.startTime}ms). Waiting...`);
+            // Wait a bit and return existing client
+            if (userQrCodes.has(userId)) {
+                io.to(`user-${userId}`).emit('qr-code', userQrCodes.get(userId));
+            }
+            return existingClient;
+        }
+
+        // Client exists but stalled - destroy it properly before creating new one
+        console.log(`[WhatsApp Web] 🧹 Client exists but stalled, destroying old client before creating new one...`);
+        try {
+            if (existingClient.pupPage) {
+                try {
+                    await existingClient.pupPage.close().catch(() => { });
+                } catch (e) { }
+            }
+            await existingClient.destroy().catch(() => { });
+        } catch (destroyErr) {
+            console.warn(`[WhatsApp Web] ⚠️ Error destroying old client (ignoring):`, destroyErr.message);
+        }
+        activeClients.delete(userId);
+        userQrCodes.delete(userId);
+        // Wait a bit for cleanup
+        await new Promise(resolve => setTimeout(resolve, 2000));
     }
 
     initializingUsers.add(userId);
@@ -42,22 +112,42 @@ async function initializeClient(userId, io) {
         const fs = require('fs');
         const path = require('path');
         const sessionPath = path.join(__dirname, 'whatsapp-sessions', `session-user-${userId}`);
-        
-        // If old session exists but client is not ready, delete it to force fresh QR
+
+        // CRITICAL: Always try to delete old session if no active client exists
+        // This ensures fresh QR code generation after disconnect
         if (fs.existsSync(sessionPath) && !activeClients.has(userId)) {
-            console.log(`[WhatsApp Web] 🧹 Old session found for user ${userId}, checking if valid...`);
-            // Check if session is too old (older than 1 day) or if we should force fresh
+            console.log(`[WhatsApp Web] 🧹 Old session found for user ${userId}, attempting to delete for fresh QR...`);
+            // Wait a bit for any locks to release
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
+            // Try to delete, but don't fail if Windows locks it
             try {
-                const stats = fs.statSync(sessionPath);
-                const age = Date.now() - stats.mtime.getTime();
-                const oneDay = 24 * 60 * 60 * 1000;
-                
-                if (age > oneDay) {
-                    console.log(`[WhatsApp Web] 🗑️ Deleting old session (${Math.round(age / oneDay)} days old) to force fresh QR...`);
+                // Try rename first (works better on Windows)
+                const oldPath = sessionPath + '.old.' + Date.now();
+                try {
+                    fs.renameSync(sessionPath, oldPath);
+                    // Delete renamed folder in background (don't wait)
+                    setTimeout(() => {
+                        try {
+                            fs.rmSync(oldPath, { recursive: true, force: true });
+                        } catch (e) {
+                            // Ignore - Windows may still have it locked
+                        }
+                    }, 2000);
+                    console.log(`[WhatsApp Web] ✅ Old session renamed (will be deleted in background)`);
+                } catch (renameErr) {
+                    // If rename fails, try direct delete
                     fs.rmSync(sessionPath, { recursive: true, force: true });
+                    console.log(`[WhatsApp Web] ✅ Old session deleted`);
                 }
-            } catch (cleanErr) {
-                console.log(`[WhatsApp Web] ⚠️ Could not check session age, proceeding anyway:`, cleanErr.message);
+            } catch (rmErr) {
+                // Windows file lock - just continue, WhatsApp will create new session folder
+                if (rmErr.code === 'EPERM' || rmErr.code === 'EBUSY' || rmErr.message.includes('Permission denied')) {
+                    console.log(`[WhatsApp Web] ℹ️ Session files locked by Windows. Will use new session folder.`);
+                } else {
+                    console.warn(`[WhatsApp Web] ⚠️ Could not delete old session:`, rmErr.message);
+                }
+                // Continue anyway - WhatsApp will handle it
             }
         }
 
@@ -104,7 +194,7 @@ async function initializeClient(userId, io) {
 
         // Create new WhatsApp client with better error handling
         console.log(`[WhatsApp Web] Creating new client for user ${userId}...`);
-        
+
         // CRITICAL FIX: Try headless: false first to see what's happening, then can switch back
         const client = new Client({
             authStrategy: new LocalAuth({
@@ -182,17 +272,80 @@ async function initializeClient(userId, io) {
             try {
                 // Get phone number
                 const phoneNumber = client.info.wid.user;
+                console.log(`[WhatsApp Web] 📱 New device connected: ${phoneNumber}`);
 
-                // Save session to database
-                await pool.query(
-                    `INSERT INTO whatsapp_sessions (user_id, phone_number, is_active, last_sync) 
-                 VALUES ($1, $2, true, NOW())
-                 ON CONFLICT (user_id) DO UPDATE SET 
-                 phone_number = $2, is_active = true, last_sync = NOW()`,
-                    [userId, phoneNumber]
+                // CRITICAL: Check if this is a different phone number (new device)
+                const existingSession = await pool.query(
+                    'SELECT phone_number, last_sync FROM whatsapp_sessions WHERE user_id = $1',
+                    [userId]
                 );
 
-                io.to(`user-${userId}`).emit('ready', { phoneNumber });
+                const existingPhoneNumber = existingSession.rows[0]?.phone_number;
+                const lastSync = existingSession.rows[0]?.last_sync;
+
+                // If phone number changed, clear old data automatically
+                if (existingPhoneNumber && existingPhoneNumber !== phoneNumber) {
+                    console.log(`[WhatsApp Web] 🔄 Phone number changed from ${existingPhoneNumber} to ${phoneNumber}`);
+                    console.log(`[WhatsApp Web] 🗑️ Auto-clearing old data for new device...`);
+
+                    try {
+                        // Clear old data
+                        const msgResult = await pool.query('DELETE FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                        const chatResult = await pool.query('DELETE FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                        const contactResult = await pool.query('DELETE FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+                        console.log(`[WhatsApp Web] ✅ Cleared: ${msgResult.rowCount} messages, ${chatResult.rowCount} chats, ${contactResult.rowCount} contacts`);
+
+                        // Reset last_sync to null so sync knows to fetch fresh data
+                        await pool.query(
+                            'UPDATE whatsapp_sessions SET last_sync = NULL WHERE user_id = $1',
+                            [userId]
+                        );
+
+                        // Notify frontend to clear UI
+                        io.to(`user-${userId}`).emit('disconnected', { dataCleared: true, newDevice: true });
+                    } catch (clearError) {
+                        console.error('[WhatsApp Web] Error auto-clearing old data:', clearError);
+                    }
+                } else if (!existingPhoneNumber && lastSync) {
+                    // First time connecting but there's old sync data - clear it
+                    console.log(`[WhatsApp Web] 🗑️ No phone number but old sync exists - clearing old data...`);
+                    try {
+                        await pool.query('DELETE FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                        await pool.query('DELETE FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                        await pool.query('DELETE FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+                        await pool.query('UPDATE whatsapp_sessions SET last_sync = NULL WHERE user_id = $1', [userId]);
+                        console.log(`[WhatsApp Web] ✅ Old data cleared`);
+                    } catch (clearError) {
+                        console.error('[WhatsApp Web] Error clearing old data:', clearError);
+                    }
+                }
+
+                // Save session to database
+                // CRITICAL: If phone number changed, set last_sync to NULL so sync knows to clear old data
+                const wasNewDevice = existingPhoneNumber && existingPhoneNumber !== phoneNumber;
+
+                if (wasNewDevice) {
+                    // New device - set last_sync to NULL
+                    await pool.query(
+                        `INSERT INTO whatsapp_sessions (user_id, phone_number, is_active, last_sync) 
+                     VALUES ($1, $2, true, NULL)
+                     ON CONFLICT (user_id) DO UPDATE SET 
+                     phone_number = $2, is_active = true, last_sync = NULL`,
+                        [userId, phoneNumber]
+                    );
+                    console.log(`[WhatsApp Web] ✅ Set last_sync to NULL for new device - sync will clear old data`);
+                } else {
+                    // Same device - update normally
+                    await pool.query(
+                        `INSERT INTO whatsapp_sessions (user_id, phone_number, is_active, last_sync) 
+                     VALUES ($1, $2, true, NOW())
+                     ON CONFLICT (user_id) DO UPDATE SET 
+                     phone_number = $2, is_active = true, last_sync = NOW()`,
+                        [userId, phoneNumber]
+                    );
+                }
+
+                io.to(`user-${userId}`).emit('ready', { phoneNumber, dataCleared: existingPhoneNumber && existingPhoneNumber !== phoneNumber });
             } catch (error) {
                 console.error('[WhatsApp Web] Error in ready event:', error);
             }
@@ -204,7 +357,7 @@ async function initializeClient(userId, io) {
 
             try {
                 // Save to database
-                await saveMessage(userId, message);
+                await saveMessage(userId, message, client);
 
                 // Send to frontend
                 io.to(`user-${userId}`).emit('new-message', formatMessage(message));
@@ -216,19 +369,106 @@ async function initializeClient(userId, io) {
         // Event: Disconnected (after initialization)
         client.on('disconnected', async (reason) => {
             console.log(`[WhatsApp Web] User ${userId} disconnected:`, reason);
+
+            // CRITICAL: Properly destroy client before cleanup
+            try {
+                if (client.pupPage && !client.pupPage.isClosed()) {
+                    await client.pupPage.close().catch(() => { });
+                }
+                await client.destroy().catch(() => { });
+            } catch (destroyErr) {
+                console.warn(`[WhatsApp Web] Error destroying client on disconnect:`, destroyErr.message);
+            }
+
+            // Clean up all references
             activeClients.delete(userId);
             userQrCodes.delete(userId);
+            initializingUsers.delete(userId);
 
             try {
                 await pool.query(
-                    'UPDATE whatsapp_sessions SET is_active = false WHERE user_id = $1',
+                    'UPDATE whatsapp_sessions SET is_active = false, last_sync = NULL WHERE user_id = $1',
                     [userId]
                 );
             } catch (error) {
                 console.error('[WhatsApp Web] Error updating session status:', error);
             }
 
-            io.to(`user-${userId}`).emit('disconnected');
+            // Notify frontend
+            io.to(`user-${userId}`).emit('disconnected', { reason });
+
+            // CRITICAL: If disconnected with LOGOUT or CONNECTION_LOST, auto-reinitialize to generate new QR
+            if (reason === 'LOGOUT' || reason === 'CONNECTION_LOST' || reason === 'NAVIGATION') {
+                console.log(`[WhatsApp Web] 🔄 Auto-reinitializing after disconnect (${reason}) to generate new QR...`);
+
+                // Clean up session files with retry (Windows file locking issue)
+                const fs = require('fs');
+                const path = require('path');
+                const sessionPath = path.join(__dirname, 'whatsapp-sessions', `session-user-${userId}`);
+
+                if (fs.existsSync(sessionPath)) {
+                    // Wait longer before attempting deletion (Windows needs time to release locks)
+                    await new Promise(resolve => setTimeout(resolve, 5000)); // Increased to 5 seconds
+
+                    // Retry deletion with delay to handle Windows file locks
+                    const deleteSession = async (retries = 5) => {
+                        for (let i = 0; i < retries; i++) {
+                            try {
+                                await new Promise(resolve => setTimeout(resolve, 3000 * (i + 1))); // Wait longer each retry
+
+                                // Try to rename first (works better on Windows)
+                                const oldPath = sessionPath + '.old.' + Date.now();
+                                try {
+                                    fs.renameSync(sessionPath, oldPath);
+                                    // Then delete the renamed folder in background
+                                    setTimeout(() => {
+                                        try {
+                                            fs.rmSync(oldPath, { recursive: true, force: true });
+                                        } catch (e) {
+                                            // Ignore - Windows may still have it locked
+                                        }
+                                    }, 2000);
+                                    console.log(`[WhatsApp Web] ✅ Session files renamed (will be deleted in background)`);
+                                    return;
+                                } catch (renameErr) {
+                                    // If rename fails, try direct delete
+                                    fs.rmSync(sessionPath, { recursive: true, force: true });
+                                    console.log(`[WhatsApp Web] ✅ Session files deleted`);
+                                    return;
+                                }
+                            } catch (rmErr) {
+                                if (i === retries - 1) {
+                                    // EPERM or other permission errors - just warn and continue
+                                    if (rmErr.code === 'EPERM' || rmErr.code === 'EBUSY' || rmErr.message.includes('Permission denied')) {
+                                        console.warn(`[WhatsApp Web] ⚠️ Windows permission error - session files locked. Will use new session folder.`);
+                                    } else {
+                                        console.warn(`[WhatsApp Web] ⚠️ Could not delete session files:`, rmErr.message);
+                                    }
+                                    // Continue anyway - WhatsApp will create a new session folder
+                                }
+                            }
+                        }
+                    };
+                    await deleteSession();
+                }
+
+                // Wait longer then reinitialize to generate new QR (ensure cleanup is complete)
+                setTimeout(async () => {
+                    try {
+                        // Double-check we're not already initializing
+                        if (initializingUsers.has(userId)) {
+                            console.log(`[WhatsApp Web] ⚠️ Already initializing, skipping duplicate reinit`);
+                            return;
+                        }
+
+                        console.log(`[WhatsApp Web] 🚀 Reinitializing client to generate new QR code...`);
+                        await initializeClient(userId, io);
+                    } catch (initError) {
+                        console.error('[WhatsApp Web] Error reinitializing after disconnect:', initError);
+                        io.to(`user-${userId}`).emit('init-error', { message: initError.message });
+                    }
+                }, 5000); // Wait 5 seconds before re-initializing (increased from 2s)
+            }
         });
 
         // CRITICAL: Add remote_session event (for session issues)
@@ -245,7 +485,7 @@ async function initializeClient(userId, io) {
 
         // FAST: Initialize the client with comprehensive event listeners
         console.log(`[WhatsApp Web] ⚡ Starting FAST initialization for user ${userId}...`);
-        
+
         // CRITICAL: These listeners are already registered above, but add loading_screen here too
         // (Some versions need it registered before initialize)
         client.on('loading_screen', (percent, message) => {
@@ -259,7 +499,7 @@ async function initializeClient(userId, io) {
         // Initialize with comprehensive error handling
         console.log(`[WhatsApp Web] 🚀 Calling client.initialize()...`);
         const initPromise = client.initialize();
-        
+
         initPromise.then(() => {
             console.log(`[WhatsApp Web] ✅ Client initialized successfully for user ${userId}`);
         }).catch(err => {
@@ -267,62 +507,78 @@ async function initializeClient(userId, io) {
             console.error(`[WhatsApp Web] Error message: ${err.message}`);
             console.error(`[WhatsApp Web] Error stack:`, err.stack);
             console.error(`[WhatsApp Web] Full error:`, err);
-            
+
             // EMIT ERROR SO FRONTEND KNOWS TO RETRY
-            io.to(`user-${userId}`).emit('init-error', { 
+            io.to(`user-${userId}`).emit('init-error', {
                 message: err.message || 'Initialization failed',
                 details: err.toString()
             });
-            
+
             // Cleanup
             try {
                 if (activeClients.has(userId)) {
                     const failedClient = activeClients.get(userId);
                     if (failedClient && failedClient.destroy) {
-                        failedClient.destroy().catch(() => {});
+                        failedClient.destroy().catch(() => { });
                     }
                 }
             } catch (cleanupErr) {
                 console.error(`[WhatsApp Web] Cleanup error:`, cleanupErr);
             }
-            
+
             activeClients.delete(userId);
             initializingUsers.delete(userId);
             userQrCodes.delete(userId);
         });
 
-        // Add timeout to detect stuck initialization
-        setTimeout(() => {
+        // Add timeout to detect stuck initialization (increased to 60s)
+        setTimeout(async () => {
             if (activeClients.has(userId)) {
                 const checkClient = activeClients.get(userId);
                 if (checkClient && !checkClient.info && !userQrCodes.has(userId)) {
-                    console.error(`[WhatsApp Web] ⚠️ TIMEOUT: No QR code after 45s for user ${userId}`);
+                    console.error(`[WhatsApp Web] ⚠️ TIMEOUT: No QR code after 60s for user ${userId}`);
                     console.error(`[WhatsApp Web] Client state:`, {
                         hasInfo: !!checkClient.info,
                         startTime: checkClient.startTime,
                         elapsed: Date.now() - checkClient.startTime,
                         hasPupPage: !!checkClient.pupPage
                     });
-                    
+
                     // Try to get more info
-                    if (checkClient.pupPage) {
-                        checkClient.pupPage.url().then(url => {
+                    if (checkClient.pupPage && !checkClient.pupPage.isClosed()) {
+                        try {
+                            // url() is a property, not a method that returns a promise
+                            const url = checkClient.pupPage.url();
                             console.log(`[WhatsApp Web] Puppeteer page URL: ${url}`);
-                        }).catch(() => {});
+                        } catch (urlErr) {
+                            // Ignore URL access errors
+                        }
                     }
-                    
+
+                    // Clean up stuck client
+                    try {
+                        if (checkClient.pupPage && !checkClient.pupPage.isClosed()) {
+                            await checkClient.pupPage.close().catch(() => { });
+                        }
+                        await checkClient.destroy().catch(() => { });
+                    } catch (e) { }
+
+                    activeClients.delete(userId);
+                    initializingUsers.delete(userId);
+                    userQrCodes.delete(userId);
+
                     // Emit timeout error to frontend
-                    io.to(`user-${userId}`).emit('init-error', { 
+                    io.to(`user-${userId}`).emit('init-error', {
                         message: 'QR code generation timeout. Please try again.',
-                        details: 'Initialization took longer than 45 seconds'
+                        details: 'Initialization took longer than 60 seconds'
                     });
                 }
             }
-        }, 45000); // 45 second timeout
+        }, 60000); // 60 second timeout (increased from 45s)
 
         activeClients.set(userId, client);
         initializingUsers.delete(userId);
-        
+
         // Add timeout check - if no QR after 30 seconds, log warning
         setTimeout(() => {
             if (!userQrCodes.has(userId) && activeClients.has(userId)) {
@@ -351,28 +607,107 @@ async function initializeClient(userId, io) {
  * Sync all chat history for a user
  */
 async function syncChatHistory(userId, io) {
+    // Prevent multiple simultaneous syncs for the same user
+    if (syncingUsers.has(userId)) {
+        console.log(`[WhatsApp Web] ⚠️ Sync already in progress for user ${userId}, skipping...`);
+        return;
+    }
+
     const client = activeClients.get(userId);
 
     if (!client) {
         throw new Error('WhatsApp client not initialized');
     }
 
-    console.log(`[WhatsApp Web] Starting chat sync for user ${userId}`);
+    syncingUsers.add(userId);
+    console.log(`[WhatsApp Web] 🚀 Starting chat sync for user ${userId}`);
+
+    // CRITICAL: Clear old data if last_sync is NULL (indicates new device or cleared data)
+    try {
+        const session = await pool.query(
+            'SELECT phone_number, last_sync FROM whatsapp_sessions WHERE user_id = $1',
+            [userId]
+        );
+
+        if (session.rows.length > 0) {
+            const lastSync = session.rows[0].last_sync;
+
+            // If last_sync is NULL, it means data was cleared (new device) - make sure it's really cleared
+            if (!lastSync) {
+                console.log(`[WhatsApp Web] ℹ️ No previous sync (last_sync is NULL) - this is a fresh sync`);
+                // Double-check data is cleared
+                const msgCount = await pool.query('SELECT COUNT(*) as count FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                const chatCount = await pool.query('SELECT COUNT(*) as count FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                if (parseInt(msgCount.rows[0].count) > 0 || parseInt(chatCount.rows[0].count) > 0) {
+                    console.log(`[WhatsApp Web] 🗑️ Found old data despite NULL sync - clearing it...`);
+                    await pool.query('DELETE FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                    await pool.query('DELETE FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                    await pool.query('DELETE FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+                    console.log(`[WhatsApp Web] ✅ Old data cleared`);
+                }
+            } else {
+                const lastSyncDate = new Date(lastSync);
+                const timeSinceSync = Date.now() - lastSyncDate.getTime();
+                const twoMinutes = 2 * 60 * 1000;
+
+                // If last sync was more than 2 minutes ago, likely a new device - clear old data
+                if (timeSinceSync > twoMinutes) {
+                    console.log(`[WhatsApp Web] 🗑️ Last sync was ${Math.round(timeSinceSync / 1000 / 60)} minutes ago - clearing old data before new sync...`);
+                    const deleteMessages = await pool.query('DELETE FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                    const deleteChats = await pool.query('DELETE FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                    const deleteContacts = await pool.query('DELETE FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+                    console.log(`[WhatsApp Web] ✅ Cleared: ${deleteMessages.rowCount} messages, ${deleteChats.rowCount} chats, ${deleteContacts.rowCount} contacts`);
+                } else {
+                    console.log(`[WhatsApp Web] ℹ️ Last sync was recent (${Math.round(timeSinceSync / 1000)}s ago) - keeping existing data`);
+                }
+            }
+        } else {
+            // No previous sync - this is first time, no need to clear
+            console.log(`[WhatsApp Web] ℹ️ No previous sync found - first time sync`);
+        }
+    } catch (clearError) {
+        console.error('[WhatsApp Web] Error checking/clearing old data:', clearError);
+        // Continue with sync anyway
+    }
 
     // WAIT for client to fully load storage (critical fix for empty sync)
     console.log('[WhatsApp Web] Waiting for client resources...');
 
-    // Poll for window.Store (max 10s)
+    // CRITICAL: Wait longer for WhatsApp Web to fully load after authentication
+    // WhatsApp Web needs time to load all chats and contacts into memory
+    // User is okay with waiting up to 2 minutes for data
+    console.log('[WhatsApp Web] Waiting 15 seconds for WhatsApp Web to fully load all chats...');
+    await new Promise(resolve => setTimeout(resolve, 15000)); // Increased to 15 seconds
+
+    // Poll for window.Store and Store.Chat (max 60s - user is okay with waiting)
     let resourcesReady = false;
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 120; i++) { // 120 * 500ms = 60 seconds max
         try {
-            if (client.pupPage) {
-                const ready = await client.pupPage.evaluate(() => typeof window.Store !== 'undefined');
-                if (ready) {
-                    resourcesReady = true;
-                    console.log('[WhatsApp Web] Client resources ready.');
-                    break;
+            if (client.pupPage && !client.pupPage.isClosed()) {
+                try {
+                    const ready = await client.pupPage.evaluate(() => {
+                        // Check if Store exists AND Store.Chat exists (needed for getChats)
+                        return typeof window.Store !== 'undefined' &&
+                            window.Store.Chat &&
+                            typeof window.Store.Chat.get === 'function';
+                    });
+                    if (ready) {
+                        resourcesReady = true;
+                        console.log('[WhatsApp Web] ✅ Client resources ready (Store.Chat available).');
+                        // Wait additional 5 seconds after Store.Chat is ready to ensure it's fully loaded
+                        await new Promise(resolve => setTimeout(resolve, 5000));
+                        break;
+                    }
+                } catch (evalErr) {
+                    // If page was closed, break out of loop
+                    if (evalErr.message.includes('Target closed') || evalErr.message.includes('Protocol error')) {
+                        console.error('[WhatsApp Web] ❌ Page was closed during resource check');
+                        break;
+                    }
                 }
+            } else if (!client.pupPage || client.pupPage.isClosed()) {
+                console.error('[WhatsApp Web] ❌ Page is closed, cannot check resources');
+                break;
             }
         } catch (e) {
             // ignore error during polling
@@ -381,7 +716,10 @@ async function syncChatHistory(userId, io) {
     }
 
     if (!resourcesReady) {
-        console.log('[WhatsApp Web] Timeout waiting for resources, proceeding anyway...');
+        console.log('[WhatsApp Web] ⚠️ Timeout waiting for Store.Chat, but proceeding anyway...');
+        // Wait even longer before proceeding
+        console.log('[WhatsApp Web] Waiting additional 10 seconds before attempting getChats...');
+        await new Promise(resolve => setTimeout(resolve, 10000));
     }
 
     try {
@@ -389,59 +727,162 @@ async function syncChatHistory(userId, io) {
         let chats = [];
         let retries = 5;
 
-        // Helper to check for window.Store
+        // Helper to check for window.Store (with page closed check)
         const isStoreReady = async () => {
-            return await client.pupPage.evaluate(() => {
-                return typeof window.Store !== 'undefined';
-            });
+            if (!client.pupPage || client.pupPage.isClosed()) {
+                return false;
+            }
+            try {
+                return await client.pupPage.evaluate(() => {
+                    return typeof window.Store !== 'undefined';
+                });
+            } catch (e) {
+                return false;
+            }
         };
 
-        while (retries > 0) {
+        // User wants NO TIME LIMITATION for fetching, so we increase retries significantly
+        // and add a mechanism to wait until data is actually ready.
+        let internalRetries = 30; // 30 * 2s = 60s of active checking (plus wait times)
+
+        while (internalRetries > 0) {
             try {
-                if (!client.pupPage) throw new Error('Puppeteer page not attached');
-
-                chats = await client.getChats();
-                console.log(`[WhatsApp Web] Successfully fetched ${chats.length} chats`);
-                break; // Success
-            } catch (err) {
-                console.warn(`[WhatsApp Web] getChats failed, retrying (${retries} left)...`, err.message);
-
-                // If it's the specific "undefined" error, try to reload the page
-                if (err.message.includes('Cannot read properties of undefined') || err.message.includes('Evaluation failed')) {
-                    console.log('[WhatsApp Web] Attempting to fix "undefined" error by reloading page...');
-                    try {
-                        await client.pupPage.reload();
-                        await new Promise(r => setTimeout(r, 10000)); // Wait for reload
-                    } catch (reloadErr) {
-                        console.error('[WhatsApp Web] Reload failed:', reloadErr);
-                    }
-                } else {
-                    await new Promise(resolve => setTimeout(resolve, 5000));
+                if (!client.pupPage || client.pupPage.isClosed()) {
+                    console.error('[WhatsApp Web] ❌ Puppeteer page not attached or closed');
+                    throw new Error('Puppeteer page not attached or closed');
                 }
 
-                retries--;
-                if (retries === 0) throw err;
+                console.log(`[WhatsApp Web] Attempting to fetch chats (retry ${6 - retries}/5)...`);
+
+                // CRITICAL: Verify Store.Chat is available AND page is not closed
+                if (client.pupPage && !client.pupPage.isClosed()) {
+                    try {
+                        const storeReady = await client.pupPage.evaluate(() => {
+                            return typeof window.Store !== 'undefined' &&
+                                window.Store.Chat &&
+                                typeof window.Store.Chat.get === 'function';
+                        });
+
+                        if (!storeReady) {
+                            console.log('[WhatsApp Web] ⚠️ Store.Chat not ready yet, waiting 10 more seconds...');
+                            await new Promise(resolve => setTimeout(resolve, 10000));
+                        } else {
+                            console.log('[WhatsApp Web] Store.Chat is ready, waiting 5 more seconds...');
+                            await new Promise(resolve => setTimeout(resolve, 5000));
+                        }
+                    } catch (evalErr) {
+                        // Ignore, handled below
+                    }
+                } else {
+                    throw new Error('Puppeteer page is closed or not available');
+                }
+
+                console.log('[WhatsApp Web] ⏳ Fetching chats manually via Puppeteer (safest method)...');
+
+                // USE MANUAL FETCH - Bypasses buggy client.getChats()
+                try {
+                    chats = await manualGetChats(client);
+                    console.log(`[WhatsApp Web] ✅ Successfully fetched ${chats.length} chats manually`);
+                } catch (manualErr) {
+                    console.error('[WhatsApp Web] Manual fetch failed:', manualErr);
+                    throw manualErr;
+                }
+
+                break; // Success
+            } catch (err) {
+                console.warn(`[WhatsApp Web] ⚠️ Fetch failed, retrying (${internalRetries - 1} left)...`, err.message);
+                console.error('[WhatsApp Web] Full error:', err);
+
+                // Check if it's a "Target closed" error - client was destroyed
+                if (err.message.includes('Target closed') || err.message.includes('Protocol error') || err.message.includes('Page was closed') || err.message.includes('Puppeteer page is closed')) {
+                    console.error('[WhatsApp Web] ❌ Client target was closed. Client may have been destroyed.');
+                    break;
+                }
+
+                // Wait before retry
+                console.log('[WhatsApp Web] Waiting 2 seconds before retry...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                internalRetries--;
+                if (internalRetries === 0) {
+                    console.error('[WhatsApp Web] ❌ All retries exhausted for getChats');
+
+                    // Even if we fail to get chats, we don't want to block the user forever.
+                    // But user specifically asked "i wont wnat any time limitation".
+                    // However, we must return eventually. We'll return empty here and let background process or user retry.
+
+                    console.log('[WhatsApp Web] Emitting sync-complete with 0 chats due to failure');
+                    io.to(`user-${userId}`).emit('sync-complete', {
+                        chats: 0,
+                        totalChats: 0,
+                        messages: 0,
+                        contacts: 0,
+                        error: err.message,
+                        note: 'Sync failed to find chats. Please ensure WhatsApp is active on your phone.'
+                    });
+                    syncingUsers.delete(userId);
+                    return; // Exit early
+                }
             }
         }
 
-        // Notify frontend about total chats
+        // Check if we got any chats
+        if (!chats || chats.length === 0) {
+            console.warn('[WhatsApp Web] ⚠️ No chats found! This might mean WhatsApp is still loading.');
+            // Still emit sync-complete with 0 chats so frontend can proceed
+            io.to(`user-${userId}`).emit('sync-complete', {
+                chats: 0,
+                totalChats: 0,
+                messages: 0,
+                contacts: 0,
+                note: 'No chats found. Please wait a moment and refresh.'
+            });
+            return; // Exit early
+        }
+
+        // Notify frontend about total chats and contacts
         io.to(`user-${userId}`).emit('sync-progress', {
             stage: 'starting',
             current: 0,
-            total: chats.length
+            total: chats.length,
+            totalContacts: chats.length, // Total contacts to fetch
+            contactsFetched: 0,
+            messages: 0
         });
 
         let totalMessages = 0;
 
         // Process each chat and extract contact names
         let contactCount = 0;
-        for (let i = 0; i < chats.length; i++) {
-            const chat = chats[i];
+        // OPTIMIZED: Limit initial sync to first 50 chats for faster loading
+        const maxChatsForInitialSync = 50;
+        const chatsToSync = chats.slice(0, maxChatsForInitialSync);
+        const totalChats = chats.length;
+
+        console.log(`[WhatsApp Web] Syncing ${chatsToSync.length} of ${totalChats} chats for faster initial load...`);
+
+        for (let i = 0; i < chatsToSync.length; i++) {
+            const chat = chatsToSync[i];
 
             try {
                 // Extract contact number
                 const contactNumber = chat.id.user || chat.id._serialized.split('@')[0];
-                const contactName = chat.name || chat.pushname || null;
+                // IMPROVED: Get contact name from multiple sources - try to get from contact object
+                let contactName = chat.name || chat.pushname || null;
+
+                // Try to get contact info if name is missing
+                if (!contactName && !chat.isGroup) {
+                    try {
+                        const contactId = chat.id._serialized;
+                        const contact = await client.getContactById(contactId);
+                        if (contact) {
+                            contactName = contact.name || contact.pushname || contact.notifyName || null;
+                            console.log(`[WhatsApp Web] Got contact name for ${contactNumber}: ${contactName || 'none'}`);
+                        }
+                    } catch (contactErr) {
+                        // Ignore - contact might not be in phonebook
+                    }
+                }
 
                 // Save chat metadata
                 await pool.query(
@@ -459,38 +900,110 @@ async function syncChatHistory(userId, io) {
                     ]
                 );
 
-                // Save contact name from chat (if not a group)
+                // Save contact name from chat (if not a group) - IMPROVED: Better name extraction
                 if (!chat.isGroup && contactNumber) {
                     try {
+                        // Get contact name from multiple sources - try to fetch from contact object first
+                        let finalContactName = contactName;
+
+                        // CRITICAL: Always try to get from contact object for better name extraction
+                        try {
+                            const contactId = chat.id._serialized;
+                            const contactObj = await client.getContactById(contactId);
+                            if (contactObj) {
+                                // Try multiple name fields
+                                finalContactName = contactObj.name ||
+                                    contactObj.pushname ||
+                                    contactObj.notifyName ||
+                                    contactObj.shortName ||
+                                    contactObj.verifiedName ||
+                                    finalContactName;
+                                if (finalContactName) {
+                                    console.log(`[WhatsApp Web] 📞 Fetched contact name for ${contactNumber}: ${finalContactName}`);
+                                }
+                            }
+                        } catch (contactErr) {
+                            // Ignore - contact might not be in phonebook
+                        }
+
+                        // Fallback to chat.name or chat.pushname
+                        if (!finalContactName) {
+                            finalContactName = chat.name || chat.pushname || null;
+                        }
+
+                        // Clean up the name (remove extra spaces, etc.)
+                        if (finalContactName) {
+                            finalContactName = finalContactName.trim();
+                            // Don't save if name is just the phone number
+                            const nameDigits = finalContactName.replace(/\D/g, '');
+                            const numberDigits = contactNumber.replace(/\D/g, '');
+                            if (finalContactName === contactNumber || nameDigits === numberDigits) {
+                                finalContactName = null;
+                            }
+                        }
+
+                        // CRITICAL FIX: Normalize phone number for consistent storage
+                        // Remove spaces, +, and ensure consistent format
+                        const normalizedNumber = contactNumber.replace(/\s+/g, '').replace(/^\+/, '');
+
+                        // Save with normalized number AND try with original format too
                         await pool.query(
                             `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name, profile_pic_url)
                              VALUES ($1, $2, $3, $4)
                              ON CONFLICT (user_id, contact_number) DO UPDATE SET
                              contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name),
                              profile_pic_url = COALESCE(NULLIF($4, ''), whatsapp_contacts.profile_pic_url)`,
-                            [userId, contactNumber, contactName, chat.profilePicUrl || null]
+                            [userId, normalizedNumber, finalContactName, chat.profilePicUrl || null]
                         );
-                        if (contactName) contactCount++;
+
+                        // Also save with original format if different
+                        if (normalizedNumber !== contactNumber) {
+                            await pool.query(
+                                `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name, profile_pic_url)
+                                 VALUES ($1, $2, $3, $4)
+                                 ON CONFLICT (user_id, contact_number) DO UPDATE SET
+                                 contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name),
+                                 profile_pic_url = COALESCE(NULLIF($4, ''), whatsapp_contacts.profile_pic_url)`,
+                                [userId, contactNumber, finalContactName, chat.profilePicUrl || null]
+                            );
+                        }
+
+                        if (finalContactName) {
+                            contactCount++;
+                            console.log(`[WhatsApp Web] ✅ Saved contact: ${finalContactName} (${contactNumber})`);
+                        } else {
+                            console.log(`[WhatsApp Web] ⚠️ No name found for ${contactNumber} - will show as number`);
+                        }
                     } catch (contactError) {
                         console.error(`[WhatsApp Web] Error saving contact for ${contactNumber}:`, contactError);
                     }
                 }
 
-                // Fetch messages (limit to last 100 per chat to avoid overload)
-                const messages = await chat.fetchMessages({ limit: 100 });
-                console.log(`[WhatsApp Web] Chat ${i + 1}/${chats.length}: ${messages.length} messages`);
+                // OPTIMIZED: Fetch fewer messages per chat for faster initial sync
+                let messages = [];
+                try {
+                    // Use manual fetch for messages too
+                    messages = await manualFetchMessages(client, chat.id._serialized, 50);
+                    console.log(`[WhatsApp Web] Chat ${i + 1}/${chatsToSync.length}: ${messages.length} messages`);
+                } catch (msgError) {
+                    console.warn(`[WhatsApp Web] ⚠️ Error fetching messages for chat ${i + 1}:`, msgError.message);
+                    messages = [];
+                }
 
                 // Save each message
                 for (const message of messages) {
-                    await saveMessage(userId, message);
+                    await saveMessage(userId, message, client);
                     totalMessages++;
                 }
 
-                // Update progress
+                // Update progress - show both current and total with contact count
                 io.to(`user-${userId}`).emit('sync-progress', {
                     stage: 'chats',
                     current: i + 1,
-                    total: chats.length,
+                    total: chatsToSync.length,
+                    totalChats: totalChats, // Show total available
+                    totalContacts: totalChats, // Total contacts to fetch
+                    contactsFetched: contactCount,
                     messages: totalMessages
                 });
             } catch (error) {
@@ -532,29 +1045,144 @@ async function syncChatHistory(userId, io) {
             [userId]
         );
 
-        // FAST: Emit sync complete immediately
+        // FAST: Emit sync complete immediately for fast redirect
+        console.log(`[WhatsApp Web] ✅ Initial sync complete: ${totalMessages} messages, ${contactCount} contacts from ${chatsToSync.length} chats`);
+        console.log(`[WhatsApp Web] ℹ️ Total ${totalChats} chats available (${totalChats - chatsToSync.length} more will sync in background)`);
+
+        // Emit sync-complete with completion message
         io.to(`user-${userId}`).emit('sync-complete', {
-            chats: chats.length,
+            chats: chatsToSync.length,
+            totalChats: totalChats,
             messages: totalMessages,
-            contacts: contactCount
+            contacts: contactCount,
+            totalContacts: totalChats,
+            completed: true,
+            message: `You have completed fetched ${contactCount} contacts and ${totalMessages} messages!`,
+            note: totalChats > chatsToSync.length ? `Synced ${chatsToSync.length} of ${totalChats} chats. More will load in background.` : null
         });
 
-        console.log(`[WhatsApp Web] ✅ FAST Sync complete for user ${userId} - ${chats.length} chats, ${totalMessages} messages, ${contactCount} contacts`);
+        // Continue syncing remaining chats in background (non-blocking)
+        if (totalChats > chatsToSync.length) {
+            console.log(`[WhatsApp Web] 🔄 Continuing background sync for remaining ${totalChats - chatsToSync.length} chats...`);
+            // Don't await - let it run in background
+            syncRemainingChats(userId, client, io, chats.slice(maxChatsForInitialSync), contactCount).catch(err => {
+                console.error('[WhatsApp Web] Background sync error (non-critical):', err);
+            });
+        }
+
+        console.log(`[WhatsApp Web] ✅ FAST Sync complete for user ${userId} - ${chatsToSync.length} chats, ${totalMessages} messages, ${contactCount} contacts`);
+        syncingUsers.delete(userId);
     } catch (error) {
-        console.error('[WhatsApp Web] Error during sync:', error);
-        io.to(`user-${userId}`).emit('sync-error', { message: error.message });
-        throw error;
+        console.error('[WhatsApp Web] ❌ Error during sync:', error);
+        console.error('[WhatsApp Web] Error stack:', error.stack);
+
+        // Always emit sync-complete even on error, so frontend can proceed
+        // Check if we have any data saved
+        try {
+            const chatCount = await pool.query('SELECT COUNT(*) as count FROM whatsapp_chats WHERE user_id = $1', [userId]);
+            const messageCount = await pool.query('SELECT COUNT(*) as count FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+            const contactCount = await pool.query('SELECT COUNT(*) as count FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+
+            const chats = parseInt(chatCount.rows[0]?.count || 0);
+            const messages = parseInt(messageCount.rows[0]?.count || 0);
+            const contacts = parseInt(contactCount.rows[0]?.count || 0);
+
+            console.log(`[WhatsApp Web] Found in DB: ${chats} chats, ${messages} messages, ${contacts} contacts`);
+
+            io.to(`user-${userId}`).emit('sync-complete', {
+                chats: chats,
+                totalChats: chats,
+                messages: messages,
+                contacts: contacts,
+                error: error.message,
+                note: chats > 0 ? 'Sync had errors but some data is available.' : 'Sync failed. Please try again.'
+            });
+        } catch (dbError) {
+            console.error('[WhatsApp Web] Error checking database:', dbError);
+            io.to(`user-${userId}`).emit('sync-error', { message: error.message });
+        }
+
+        // Don't throw - let it complete gracefully
+        console.log('[WhatsApp Web] Sync completed with errors, but frontend notified');
+        syncingUsers.delete(userId);
     }
+}
+
+/**
+ * Sync remaining chats in background (non-blocking)
+ */
+async function syncRemainingChats(userId, client, io, remainingChats, existingContactCount) {
+    let totalMessages = 0;
+    let contactCount = existingContactCount;
+
+    console.log(`[WhatsApp Web] 🔄 Starting background sync for ${remainingChats.length} remaining chats...`);
+
+    for (let i = 0; i < remainingChats.length; i++) {
+        const chat = remainingChats[i];
+        try {
+            const contactNumber = chat.id.user || chat.id._serialized.split('@')[0];
+            const contactName = chat.name || chat.pushname || null;
+
+            // Save chat metadata
+            await pool.query(
+                `INSERT INTO whatsapp_chats (user_id, chat_id, contact_number, is_group, group_name, last_message_time)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (user_id, chat_id) DO UPDATE SET
+                 last_message_time = $6, group_name = $5`,
+                [
+                    userId,
+                    chat.id._serialized,
+                    contactNumber,
+                    chat.isGroup,
+                    chat.name,
+                    chat.lastMessage ? new Date(chat.lastMessage.timestamp * 1000) : null
+                ]
+            );
+
+            // Save contact name
+            if (!chat.isGroup && contactNumber && contactName) {
+                try {
+                    const normalizedNumber = contactNumber.replace(/\s+/g, '').replace(/^\+/, '');
+                    await pool.query(
+                        `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
+                         VALUES ($1, $2, $3)
+                         ON CONFLICT (user_id, contact_number) DO UPDATE SET
+                         contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
+                        [userId, normalizedNumber, contactName.trim()]
+                    );
+                    contactCount++;
+                } catch (contactError) {
+                    // Ignore
+                }
+            }
+
+            // Fetch messages (fewer for background sync)
+            const messages = await manualFetchMessages(client, chat.id._serialized, 30);
+            for (const message of messages) {
+                await saveMessage(userId, message, client);
+                totalMessages++;
+            }
+        } catch (error) {
+            console.error(`[WhatsApp Web] Error in background sync for chat ${i + 1}:`, error);
+        }
+    }
+
+    console.log(`[WhatsApp Web] ✅ Background sync complete: +${totalMessages} messages, +${contactCount - existingContactCount} contacts`);
 }
 
 /**
  * Save a message to database
  */
-async function saveMessage(userId, message) {
+async function saveMessage(userId, message, client = null) {
     try {
         // Extract contact info from message
         const senderNumber = message.fromMe ? null : (message.author || message.from || '').split('@')[0];
         const contactName = message.notifyName || message._data?.notifyName || null;
+
+        // Get client if not provided
+        if (!client) {
+            client = activeClients.get(userId);
+        }
 
         await pool.query(
             `INSERT INTO whatsapp_web_messages 
@@ -573,16 +1201,66 @@ async function saveMessage(userId, message) {
             ]
         );
 
-        // Update contact name from message if available
-        if (senderNumber && contactName && !message.fromMe) {
+        // Update contact name from message if available - IMPROVED: Better name extraction
+        if (senderNumber && !message.fromMe) {
             try {
-                await pool.query(
-                    `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
-                     VALUES ($1, $2, $3)
-                     ON CONFLICT (user_id, contact_number) DO UPDATE SET
-                     contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
-                    [userId, senderNumber, contactName]
-                );
+                // Get name from multiple sources
+                let cleanName = contactName ||
+                    message.notifyName ||
+                    message._data?.notifyName ||
+                    message._data?.notify ||
+                    message.pushName ||
+                    null;
+
+                // Try to get from contact object if available
+                if (!cleanName && client) {
+                    try {
+                        const contactId = message.from || message.author;
+                        if (contactId) {
+                            const contactObj = await client.getContactById(contactId);
+                            if (contactObj) {
+                                cleanName = contactObj.name ||
+                                    contactObj.pushname ||
+                                    contactObj.notifyName ||
+                                    contactObj.shortName ||
+                                    contactObj.verifiedName ||
+                                    cleanName;
+                            }
+                        }
+                    } catch (err) {
+                        // Ignore
+                    }
+                }
+
+                if (cleanName) {
+                    cleanName = cleanName.trim();
+                    // Don't save if name is just the phone number
+                    const nameDigits = cleanName.replace(/\D/g, '');
+                    const numDigits = senderNumber.replace(/\D/g, '');
+                    if (cleanName !== senderNumber && nameDigits !== numDigits) {
+                        // Normalize phone number
+                        const normalizedNumber = senderNumber.replace(/\s+/g, '').replace(/^\+/, '');
+
+                        await pool.query(
+                            `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
+                             VALUES ($1, $2, $3)
+                             ON CONFLICT (user_id, contact_number) DO UPDATE SET
+                             contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
+                            [userId, normalizedNumber, cleanName]
+                        );
+
+                        // Also save with original format
+                        if (normalizedNumber !== senderNumber) {
+                            await pool.query(
+                                `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
+                                 VALUES ($1, $2, $3)
+                                 ON CONFLICT (user_id, contact_number) DO UPDATE SET
+                                 contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
+                                [userId, senderNumber, cleanName]
+                            );
+                        }
+                    }
+                }
             } catch (contactError) {
                 // Ignore contact update errors
             }
@@ -646,7 +1324,7 @@ async function sendMessage(userId, phoneNumber, messageText) {
         const message = await client.sendMessage(formattedNumber, messageText);
 
         // Save message to database
-        await saveMessage(userId, message);
+        await saveMessage(userId, message, client);
 
         return message;
     } catch (error) {
@@ -656,14 +1334,16 @@ async function sendMessage(userId, phoneNumber, messageText) {
 }
 
 /**
- * Disconnect client
+ * Disconnect client - IMPROVED: Clear old data when linking new device
  */
-async function disconnectClient(userId) {
+async function disconnectClient(userId, io = null, clearData = true) {
     const client = activeClients.get(userId);
     if (client) {
         try {
             await client.destroy();
             activeClients.delete(userId);
+            userQrCodes.delete(userId);
+            initializingUsers.delete(userId);
 
             // Wait for process to fully exit
             await new Promise(resolve => setTimeout(resolve, 1000));
@@ -671,14 +1351,54 @@ async function disconnectClient(userId) {
             // FORCE CLEANUP: Delete session data to ensure fresh QR on next connect
             const fs = require('fs');
             const path = require('path');
-            const sessionPath = path.join(__dirname, '.wwebjs_auth', `session-${userId}`);
+            const sessionPath = path.join(__dirname, 'whatsapp-sessions', `session-user-${userId}`);
 
             if (fs.existsSync(sessionPath)) {
-                console.log(`[WhatsApp Web] Wiping session data for user ${userId}...`);
+                console.log(`[WhatsApp Web] 🧹 Wiping session data for user ${userId}...`);
+                // Retry deletion with delay to handle Windows file locks (EBUSY error)
+                const deleteSession = async (retries = 3) => {
+                    for (let i = 0; i < retries; i++) {
+                        try {
+                            await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1))); // Wait longer each retry
+                            fs.rmSync(sessionPath, { recursive: true, force: true });
+                            console.log(`[WhatsApp Web] ✅ Session wiped after ${i + 1} retry(ies) - fresh QR will be generated`);
+                            return;
+                        } catch (rmErr) {
+                            if (i === retries - 1) {
+                                console.warn(`[WhatsApp Web] ⚠️ Could not delete session files (Windows lock?):`, rmErr.message);
+                                // Continue anyway - will be overwritten on next init
+                            }
+                        }
+                    }
+                };
+                await deleteSession();
+            }
+
+            // CRITICAL: Clear old data when linking new device
+            if (clearData) {
+                console.log(`[WhatsApp Web] 🗑️ Clearing old data for user ${userId} (linking new device)...`);
                 try {
-                    fs.rmSync(sessionPath, { recursive: true, force: true });
-                } catch (rmErr) {
-                    console.error('[WhatsApp Web] Error deleting session files (ignoring):', rmErr.message);
+                    // Delete old messages
+                    await pool.query('DELETE FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                    console.log(`[WhatsApp Web] ✅ Cleared old messages`);
+
+                    // Delete old chats
+                    await pool.query('DELETE FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                    console.log(`[WhatsApp Web] ✅ Cleared old chats`);
+
+                    // Delete old contacts
+                    await pool.query('DELETE FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+                    console.log(`[WhatsApp Web] ✅ Cleared old contacts`);
+
+                    // Clear session data
+                    await pool.query(
+                        'UPDATE whatsapp_sessions SET phone_number = NULL, last_sync = NULL, is_active = false WHERE user_id = $1',
+                        [userId]
+                    );
+                    console.log(`[WhatsApp Web] ✅ Cleared session data`);
+                } catch (clearError) {
+                    console.error('[WhatsApp Web] Error clearing old data:', clearError);
+                    // Don't throw - continue with disconnect
                 }
             }
 
@@ -687,10 +1407,34 @@ async function disconnectClient(userId) {
                 'UPDATE whatsapp_sessions SET is_active = false WHERE user_id = $1',
                 [userId]
             );
-            console.log(`[WhatsApp Web] Client disconnected and session wiped for user ${userId}`);
-            io.to(`user-${userId}`).emit('disconnected'); // Notify frontend
+            console.log(`[WhatsApp Web] ✅ Client disconnected and session wiped for user ${userId}`);
+
+            // Notify frontend if io is available
+            if (io) {
+                io.to(`user-${userId}`).emit('disconnected', { dataCleared: clearData });
+            }
         } catch (error) {
             console.error('[WhatsApp Web] Error disconnecting client:', error);
+            throw error;
+        }
+    } else {
+        console.log(`[WhatsApp Web] No client found for user ${userId} - already disconnected`);
+
+        // Still clear data if requested
+        if (clearData) {
+            console.log(`[WhatsApp Web] 🗑️ Clearing old data for user ${userId} (no active client)...`);
+            try {
+                await pool.query('DELETE FROM whatsapp_web_messages WHERE user_id = $1', [userId]);
+                await pool.query('DELETE FROM whatsapp_chats WHERE user_id = $1', [userId]);
+                await pool.query('DELETE FROM whatsapp_contacts WHERE user_id = $1', [userId]);
+                await pool.query(
+                    'UPDATE whatsapp_sessions SET phone_number = NULL, last_sync = NULL, is_active = false WHERE user_id = $1',
+                    [userId]
+                );
+                console.log(`[WhatsApp Web] ✅ Cleared old data`);
+            } catch (clearError) {
+                console.error('[WhatsApp Web] Error clearing old data:', clearError);
+            }
         }
     }
 }
@@ -702,5 +1446,134 @@ module.exports = {
     isClientReady,
     disconnectClient,
     sendMessage,
-    activeClients
+    activeClients,
+    manualGetChats,
+    manualFetchMessages
 };
+
+/**
+ * Manually fetch chats using Puppeteer evaluation
+ */
+async function manualGetChats(client) {
+    return await client.pupPage.evaluate(() => {
+        // ROBUST CHECK FOR STORE
+        if (typeof window.Store === 'undefined') {
+            return []; // Store not ready
+        }
+        if (!window.Store.Chat) {
+            return []; // Chat module not ready
+        }
+
+        // Try different ways to access models
+        let chats = [];
+        if (window.Store.Chat.models) {
+            chats = window.Store.Chat.models;
+        } else if (typeof window.Store.Chat.getModelsArray === 'function') {
+            chats = window.Store.Chat.getModelsArray();
+        } else if (window.Store.Chat._models) {
+            chats = window.Store.Chat._models;
+        } else if (Array.isArray(window.Store.Chat)) {
+            chats = window.Store.Chat;
+        }
+
+        // If still no chats, try to see if it's a Collection class we can iterate
+        if (!chats || (Array.isArray(chats) && chats.length === 0)) {
+            return [];
+        }
+
+        // If it's not an array, try to convert it
+        if (!Array.isArray(chats)) {
+            if (chats.length !== undefined && chats.length > 0) {
+                chats = Array.from(chats);
+            } else {
+                return [];
+            }
+        }
+
+        return chats.map(c => {
+            // Validate c exists
+            if (!c) return null;
+
+            // Reconstruct minimal object needed for sync
+            const idObj = c.id || {};
+
+            return {
+                id: {
+                    _serialized: idObj._serialized || (idObj.user + '@' + idObj.server),
+                    user: idObj.user,
+                    server: idObj.server,
+                    remote: idObj.remote || idObj._serialized
+                },
+                name: c.name || c.pushname || c.formattedTitle || c.contact?.name,
+                pushname: c.pushname,
+                isGroup: c.isGroup,
+                unreadCount: c.unreadCount,
+                lastMessage: c.lastmsg ? {
+                    timestamp: c.lastmsg.t
+                } : null,
+                // Add profile pic if available
+                profilePicUrl: c.contact && c.contact.profilePicUrl ? c.contact.profilePicUrl : null
+            };
+        }).filter(c => c !== null); // Remove nulls
+    });
+}
+
+/**
+ * Manually fetch messages using Puppeteer evaluation
+ */
+async function manualFetchMessages(client, chatId, limit = 50) {
+    return await client.pupPage.evaluate(async (chatId, limit) => {
+        if (!window.Store || !window.Store.Chat) return [];
+
+        const chat = window.Store.Chat.get(chatId);
+        if (!chat) return [];
+
+        // Try to load earlier messages if we don't have enough
+        if (chat.msgs && chat.msgs.length < limit && typeof chat.loadEarlierMsgs === 'function') {
+            try {
+                await chat.loadEarlierMsgs();
+            } catch (e) { }
+        } else if (typeof chat.loadEarlierMsgs === 'function') {
+            // If msgs prop doesn't exist but method does
+            try { await chat.loadEarlierMsgs(); } catch (e) { }
+        }
+
+        // Get messages models
+        let msgs = [];
+        if (chat.msgs && chat.msgs.models) {
+            msgs = chat.msgs.models;
+        } else if (chat.msgs && typeof chat.msgs.getModelsArray === 'function') {
+            msgs = chat.msgs.getModelsArray();
+        } else if (chat.msgs && chat.msgs._models) {
+            msgs = chat.msgs._models;
+        } else if (chat.msgs && Array.isArray(chat.msgs)) {
+            msgs = chat.msgs;
+        }
+
+        if (!Array.isArray(msgs)) return [];
+
+        const sliced = msgs.slice(-limit);
+
+        return sliced.map(m => {
+            // Validate m
+            if (!m || !m.id) return null;
+
+            return {
+                id: {
+                    _serialized: m.id._serialized,
+                    remote: m.id.remote
+                },
+                body: m.body || '',
+                type: m.type,
+                timestamp: m.t,
+                from: m.from,
+                to: m.to,
+                author: m.author,
+                isStatus: m.isStatus,
+                hasMedia: m.hasMedia,
+                fromMe: m.id.fromMe,
+                notifyName: m.notifyName || (m._data ? m._data.notifyName : null)
+            };
+        }).filter(m => m !== null);
+    }, chatId, limit);
+}

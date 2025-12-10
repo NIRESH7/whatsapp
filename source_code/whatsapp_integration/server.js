@@ -798,10 +798,53 @@ app.get('/api/current_user', (req, res) => {
     res.send(req.user);
 });
 
-app.get('/api/logout', (req, res) => {
-    req.logout((err) => {
-        if (err) { return next(err); }
-        res.redirect('http://localhost:5173');
+app.get('/api/logout', async (req, res) => {
+    const userId = req.user?.id || 1; // Get user ID before logout
+    
+    req.logout(async (err) => {
+        if (err) {
+            return res.status(500).json({ error: 'Logout failed' });
+        }
+        
+        // CRITICAL: Clear all WhatsApp data on logout
+        try {
+            console.log(`[API] 🗑️ Clearing WhatsApp data for user ${userId} on logout...`);
+            await whatsappWebService.disconnectClient(userId, io, true); // clearData = true
+            
+            // Also clear session files
+            const fs = require('fs');
+            const path = require('path');
+            const sessionPath = path.join(__dirname, 'whatsapp-sessions', `session-user-${userId}`);
+            if (fs.existsSync(sessionPath)) {
+                try {
+                    // Retry deletion with delay to handle Windows file locks
+                    const deleteSession = async (retries = 3) => {
+                        for (let i = 0; i < retries; i++) {
+                            try {
+                                await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+                                fs.rmSync(sessionPath, { recursive: true, force: true });
+                                console.log(`[API] ✅ Session files deleted on logout`);
+                                return;
+                            } catch (rmErr) {
+                                if (i === retries - 1) {
+                                    console.warn(`[API] ⚠️ Could not delete session files:`, rmErr.message);
+                                }
+                            }
+                        }
+                    };
+                    await deleteSession();
+                } catch (rmErr) {
+                    console.warn(`[API] ⚠️ Could not delete session files:`, rmErr.message);
+                }
+            }
+            
+            console.log(`[API] ✅ WhatsApp data cleared for user ${userId} on logout`);
+        } catch (clearError) {
+            console.error('[API] Error clearing WhatsApp data on logout:', clearError);
+            // Continue with logout even if clearing fails
+        }
+        
+        res.json({ success: true, message: 'Logged out successfully. WhatsApp data cleared.' });
     });
 });
 
@@ -887,7 +930,13 @@ app.post('/api/whatsapp-web/sync', async (req, res) => {
     const userId = req.user?.id || 1;
 
     try {
-        console.log(`[API] ⚡ Starting FAST sync for user ${userId}...`);
+        console.log(`[API] ⚡ Starting sync for user ${userId} (user is okay with waiting up to 2 minutes)...`);
+        
+        // CRITICAL: Wait 10 seconds after client ready before starting sync
+        // This gives WhatsApp Web time to fully load all chats
+        console.log(`[API] Waiting 10 seconds for WhatsApp Web to fully load before starting sync...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        
         // Start sync in background (non-blocking)
         whatsappWebService.syncChatHistory(userId, io).catch(err => {
             console.error('[API] Sync error:', err);
@@ -955,14 +1004,31 @@ app.get('/api/whatsapp-web/chats', async (req, res) => {
     }
 });
 
-// Disconnect WhatsApp Web
+// Disconnect WhatsApp Web - IMPROVED: Pass io, clear data, and auto-init after disconnect
 app.post('/api/whatsapp-web/disconnect', async (req, res) => {
-    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
-    const userId = req.user.id;
+    const userId = req.user?.id || 1; // Allow unauthenticated for now
+    const clearData = req.body.clearData !== false; // Default to true (clear data when linking new device)
 
     try {
-        await whatsappWebService.disconnectClient(userId);
-        res.json({ success: true, message: 'Disconnected' });
+        console.log(`[API] Disconnecting WhatsApp for user ${userId} (clearData: ${clearData})...`);
+        await whatsappWebService.disconnectClient(userId, io, clearData);
+        
+        // Auto-initialize after disconnect to generate new QR
+        console.log(`[API] Auto-initializing after disconnect to generate new QR...`);
+        setTimeout(async () => {
+            try {
+                await whatsappWebService.initializeClient(userId, io);
+                console.log(`[API] ✅ New QR code generation started after disconnect`);
+            } catch (initError) {
+                console.error('[API] Error auto-initializing after disconnect:', initError);
+            }
+        }, 2000); // Wait 2 seconds before re-initializing
+        
+        res.json({ 
+            success: true, 
+            message: clearData ? 'Disconnected and old data cleared. New QR code will be generated...' : 'Disconnected. New QR code will be generated...',
+            dataCleared: clearData
+        });
     } catch (error) {
         console.error('[API] Error disconnecting:', error);
         res.status(500).json({ error: error.message });
@@ -973,9 +1039,12 @@ app.post('/api/whatsapp-web/disconnect', async (req, res) => {
 app.get('/api/whatsapp-business/conversations', async (req, res) => {
     const userId = req.user?.id || 1;
     try {
+        // IMPROVED: Better phone number matching - handle different formats
         const result = await pool.query(`
             SELECT 
                 wc.contact_number, 
+                wcon.contact_name,
+                wc.group_name,
                 COALESCE(
                     NULLIF(wcon.contact_name, ''),
                     NULLIF(wc.group_name, ''),
@@ -984,17 +1053,41 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
                 wc.last_message_time,
                 wc.is_group
             FROM whatsapp_chats wc
-            LEFT JOIN whatsapp_contacts wcon ON wc.contact_number = wcon.contact_number AND wc.user_id = wcon.user_id
+            LEFT JOIN whatsapp_contacts wcon ON 
+                (
+                    wc.contact_number = wcon.contact_number 
+                    OR REPLACE(REPLACE(REPLACE(wc.contact_number, ' ', ''), '+', ''), '-', '') = REPLACE(REPLACE(REPLACE(wcon.contact_number, ' ', ''), '+', ''), '-', '')
+                    OR wc.contact_number LIKE '%' || REPLACE(REPLACE(REPLACE(wcon.contact_number, ' ', ''), '+', ''), '-', '') || '%'
+                    OR wcon.contact_number LIKE '%' || REPLACE(REPLACE(REPLACE(wc.contact_number, ' ', ''), '+', ''), '-', '') || '%'
+                )
+                AND wc.user_id = wcon.user_id
             WHERE wc.user_id = $1
             ORDER BY wc.last_message_time DESC NULLS LAST
         `, [userId]);
 
-        const contacts = result.rows.map(row => ({
-            number: row.contact_number,
-            name: row.display_name || row.contact_number,
-            lastMessageTime: row.last_message_time ? row.last_message_time.toISOString() : null,
-            isGroup: row.is_group
-        }));
+        const contacts = result.rows.map(row => {
+            // Use contact_name if available, otherwise group_name, otherwise number
+            let displayName = row.contact_name;
+            if (!displayName || displayName.trim() === '' || displayName === row.contact_number) {
+                displayName = row.group_name;
+            }
+            if (!displayName || displayName.trim() === '' || displayName === row.contact_number) {
+                displayName = row.contact_number;
+            }
+            
+            return {
+                number: row.contact_number,
+                name: displayName, // Always use the best available name
+                lastMessageTime: row.last_message_time ? row.last_message_time.toISOString() : null,
+                isGroup: row.is_group
+            };
+        });
+        
+        // DEBUG: Log first few contacts to see what we're returning
+        if (contacts.length > 0) {
+            console.log(`[API] Returning ${contacts.length} contacts. First 3:`, 
+                contacts.slice(0, 3).map(c => `${c.name} (${c.number})`).join(', '));
+        }
 
         res.json(contacts);
     } catch (error) {
@@ -1003,7 +1096,7 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
     }
 });
 
-// WhatsApp Business API - Get messages for a specific contact
+// WhatsApp Business API - Get messages for a specific contact - IMPROVED: Include contact names
 app.get('/api/whatsapp-business/messages/:phoneNumber', async (req, res) => {
     const { phoneNumber } = req.params;
     const userId = req.user?.id || 1;
@@ -1017,17 +1110,57 @@ app.get('/api/whatsapp-business/messages/:phoneNumber', async (req, res) => {
             [userId, `%${phoneNumber}%`]
         );
 
-        const formattedMessages = result.rows.map(msg => ({
-            id: msg.message_id,
-            sender: msg.is_from_me ? 'Me' : (msg.sender && msg.sender.includes('@') ? msg.sender.split('@')[0] : msg.sender),
-            recipient: msg.is_from_me ? (msg.chat_id && msg.chat_id.includes('@') ? msg.chat_id.split('@')[0] : msg.chat_id) : 'Me',
-            text: msg.message_text,
-            time: new Date(msg.timestamp).toLocaleTimeString(),
-            timestamp: msg.timestamp,
-            type: msg.is_from_me ? 'sent' : 'received',
-            mediaUrl: null, // Basic text support for now
-            read: true
-        }));
+        // Get all contact names for this user to map sender numbers to names
+        const contactsResult = await pool.query(
+            `SELECT contact_number, contact_name FROM whatsapp_contacts WHERE user_id = $1`,
+            [userId]
+        );
+        const contactMap = new Map();
+        contactsResult.rows.forEach(row => {
+            if (row.contact_name && row.contact_name.trim() !== '' && row.contact_name !== row.contact_number) {
+                // Store both full number and digits-only for matching
+                contactMap.set(row.contact_number, row.contact_name);
+                const digitsOnly = row.contact_number.replace(/\D/g, '');
+                if (digitsOnly) {
+                    contactMap.set(digitsOnly, row.contact_name);
+                }
+            }
+        });
+
+        const formattedMessages = result.rows.map(msg => {
+            const senderNumber = msg.is_from_me 
+                ? null 
+                : (msg.sender && msg.sender.includes('@') ? msg.sender.split('@')[0] : msg.sender);
+            
+            // Get sender name from contact map if available
+            let senderName = 'Me';
+            if (!msg.is_from_me && senderNumber) {
+                // Try exact match first
+                senderName = contactMap.get(senderNumber);
+                // Try digits-only match
+                if (!senderName) {
+                    const senderDigits = senderNumber.replace(/\D/g, '');
+                    senderName = contactMap.get(senderDigits);
+                }
+                // Fallback to number if no name found
+                if (!senderName) {
+                    senderName = senderNumber;
+                }
+            }
+
+            return {
+                id: msg.message_id,
+                sender: senderName,
+                senderNumber: senderNumber, // Keep original number for reference
+                recipient: msg.is_from_me ? (msg.chat_id && msg.chat_id.includes('@') ? msg.chat_id.split('@')[0] : msg.chat_id) : 'Me',
+                text: msg.message_text,
+                time: new Date(msg.timestamp).toLocaleTimeString(),
+                timestamp: msg.timestamp,
+                type: msg.is_from_me ? 'sent' : 'received',
+                mediaUrl: null, // Basic text support for now
+                read: true
+            };
+        });
 
         res.json(formattedMessages);
     } catch (error) {
@@ -1092,6 +1225,11 @@ process.on('uncaughtException', (err) => {
 });
 
 process.on('unhandledRejection', (reason, promise) => {
+    // Ignore EBUSY errors from WhatsApp session file deletion (Windows file locking)
+    if (reason && reason.message && reason.message.includes('EBUSY')) {
+        console.warn('[Server] ⚠️ Windows file lock detected (EBUSY) - ignoring:', reason.message);
+        return; // Ignore this error
+    }
     console.error('UNHANDLED REJECTION:', reason);
     // Keep server running
 });

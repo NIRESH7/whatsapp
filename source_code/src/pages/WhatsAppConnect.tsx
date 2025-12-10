@@ -16,6 +16,7 @@ export default function WhatsAppConnect() {
     const [userId, setUserId] = useState<number | null>(null);
     const socketRef = useRef<Socket | null>(null);
     const navigate = useNavigate();
+    const [showFetchingModal, setShowFetchingModal] = useState(false);
 
     // Auto-init ref to prevent double firing
     const hasAutoInitialized = useRef(false);
@@ -110,36 +111,76 @@ export default function WhatsAppConnect() {
         // Listen for ready - FAST SYNC
         socket.on('ready', async (data: any) => {
             console.log('[WhatsApp Connect] WhatsApp Web ready:', data);
-            setStatus(`✅ Connected! Starting fast sync...`);
+            
+            // If data was cleared (new device), show message
+            if (data.dataCleared) {
+                setStatus(`✅ New device connected! Old data cleared. Starting fast sync...`);
+            } else {
+                setStatus(`✅ Connected! Starting fast sync...`);
+            }
+            
             setPhoneNumber(data.phoneNumber);
             setQrCode(null);
             setIsAuthenticated(true);
 
-            // FAST: Auto-start sync immediately
+            // FAST: Auto-start sync immediately with timeout fallback
             try {
                 console.log('[WhatsApp Connect] Starting fast sync...');
                 setStatus(`🔄 Fetching your chats and contacts...`);
-                // Don't await - let it run in background, show progress via socket
+                
+                // Set a timeout to redirect even if sync is slow
+                const syncTimeout = setTimeout(() => {
+                    console.log('[WhatsApp Connect] Sync timeout - redirecting anyway...');
+                    setStatus('✅ Data loaded! Redirecting to chat...');
+                    setTimeout(() => navigate('/chat'), 1000);
+                }, 150000); // 150 second max wait (2.5 minutes - user is okay with waiting)
+                
+                // Clear timeout when sync completes
+                const originalSyncComplete = socket.listeners('sync-complete')[0];
+                socket.off('sync-complete');
+                socket.once('sync-complete', (syncData: any) => {
+                    clearTimeout(syncTimeout);
+                    if (originalSyncComplete) {
+                        originalSyncComplete(syncData);
+                    }
+                });
+                
+                // Start sync (don't await - let it run in background)
                 axios.post('http://localhost:3000/api/whatsapp-web/sync', {}, {
-                    withCredentials: true
+                    withCredentials: true,
+                    timeout: 55000 // 55 second timeout
                 }).catch(err => {
+                    clearTimeout(syncTimeout);
                     console.error('[WhatsApp Connect] Sync error:', err);
-                    setStatus('❌ Sync failed. Redirecting anyway...');
+                    setStatus('⚠️ Sync had issues, but redirecting to chat...');
                     setTimeout(() => navigate('/chat'), 2000);
                 });
             } catch (err: any) {
                 console.error('[WhatsApp Connect] Sync error:', err);
+                setStatus('⚠️ Error starting sync, redirecting...');
+                setTimeout(() => navigate('/chat'), 2000);
             }
         });
 
         // Listen for sync progress - FAST UPDATES
         socket.on('sync-progress', (progress: any) => {
             setSyncProgress(progress);
+            // Keep modal open during sync
+            if (!showFetchingModal) {
+                setShowFetchingModal(true);
+            }
+            
+            const totalContacts = progress.totalContacts || progress.total || 0;
+            const contactsFetched = progress.contactsFetched || progress.current || 0;
+            const messagesFetched = progress.messages || 0;
+            
             if (progress.total > 0) {
                 const percent = Math.round((progress.current / progress.total) * 100);
-                setStatus(`🔄 Syncing... ${progress.current}/${progress.total} chats (${percent}%)`);
+                setStatus(`🔄 Fetching data... ${contactsFetched}/${totalContacts} contacts, ${messagesFetched} messages (${percent}%) - Please wait, this may take up to 2 minutes...`);
+            } else if (totalContacts > 0) {
+                setStatus(`🔄 Preparing to fetch ${totalContacts} contacts from your mobile... This may take up to 2 minutes, please wait...`);
             } else {
-                setStatus('🔄 Preparing to sync...');
+                setStatus('🔄 Preparing to fetch your data... This may take up to 2 minutes, please wait...');
             }
         });
 
@@ -149,13 +190,27 @@ export default function WhatsAppConnect() {
             const chatsCount = data.chats || 0;
             const messagesCount = data.messages || 0;
             const contactsCount = data.contacts || 0;
-            setStatus(`✅ Successfully fetched ${chatsCount} chats, ${messagesCount} messages, and ${contactsCount} contacts!`);
+            const totalChats = data.totalChats || chatsCount;
+            const totalContacts = data.totalContacts || totalChats;
+            
+            // Close fetching modal
+            setShowFetchingModal(false);
+            
+            // Show completion message
+            if (data.message) {
+                setStatus(`✅ ${data.message}`);
+            } else if (data.note) {
+                setStatus(`✅ Fetched ${chatsCount} chats (${totalChats} total), ${messagesCount} messages, ${contactsCount} contacts! More loading in background...`);
+            } else {
+                setStatus(`✅ You have completed fetched ${contactsCount} contacts and ${messagesCount} messages!`);
+            }
             setSyncProgress(null);
 
-            // FAST: Redirect quickly after success message
+            // Show completion message for 2 seconds, then redirect
             setTimeout(() => {
+                console.log('[WhatsApp Connect] Redirecting to chat page...');
                 navigate('/chat');
-            }, 1500); // Reduced from 2000ms for faster redirect
+            }, 2000); // 2 seconds to show completion message
         });
 
         // Listen for sync error
@@ -169,8 +224,8 @@ export default function WhatsAppConnect() {
         });
 
         // Listen for disconnection
-        socket.on('disconnected', () => {
-            console.log('[WhatsApp Connect] Disconnected');
+        socket.on('disconnected', (data: any) => {
+            console.log('[WhatsApp Connect] Disconnected', data);
             setStatus('Disconnected. Preparing new session...');
             setIsAuthenticated(false);
             setQrCode(null);
@@ -178,8 +233,11 @@ export default function WhatsAppConnect() {
             setPhoneNumber(null);
             hasAutoInitialized.current = false; // Allow auto-init again
 
-            // Auto-trigger init again explicitly (optional, but good for flow)
-            // We'll let the dependency array handle it
+            // CRITICAL: Auto-trigger init after disconnect to generate new QR
+            console.log('[WhatsApp Connect] Auto-triggering QR generation after disconnect...');
+            setTimeout(() => {
+                handleGenerateQR();
+            }, 2000); // Wait 2 seconds for cleanup
         });
 
         socket.on('auth-failure', (data: any) => {
@@ -250,17 +308,58 @@ export default function WhatsAppConnect() {
 
     const handleDisconnect = async () => {
         // Explicitly confirm with user as this is a destructive action
-        if (!confirm('Are you sure you want to disconnect and link a new device?')) return;
+        if (!confirm('Are you sure you want to disconnect and link a new device?\n\n⚠️ This will clear all existing chats, messages, and contacts from the current account.')) return;
 
-        setStatus('Disconnecting... (This calls for a new QR code)');
+        console.log('[WhatsApp Connect] Link New Device clicked - will clear old data');
+        setStatus('Disconnecting and clearing old data... (This will generate a new QR code)');
+        setIsAuthenticated(false);
+        setQrCode(null);
+        setPhoneNumber(null);
         hasAutoInitialized.current = false; // Reset to allow immediate re-init
 
         try {
-            await axios.post('http://localhost:3000/api/whatsapp-web/disconnect');
-            // State reset happens in 'disconnected' socket event, which triggers auto-init
+            // Clear data when linking new device
+            const response = await axios.post('http://localhost:3000/api/whatsapp-web/disconnect', {
+                clearData: true // Explicitly clear old data
+            }, {
+                withCredentials: true,
+                timeout: 15000
+            });
+            console.log('[WhatsApp Connect] Disconnect response:', response.data);
+            
+            if (response.data.dataCleared) {
+                setStatus('✅ Old data cleared! Generating new QR code...');
+            }
+            
+            // Wait a bit then trigger new QR generation (backend will auto-init, but we'll also trigger it)
+            setTimeout(async () => {
+                setStatus('⚡ Generating new QR code...');
+                try {
+                    await axios.post('http://localhost:3000/api/whatsapp-web/init', {}, {
+                        withCredentials: true,
+                        timeout: 15000
+                    });
+                    console.log('[WhatsApp Connect] New QR generation triggered');
+                } catch (initError: any) {
+                    console.error('[WhatsApp Connect] Error generating new QR:', initError);
+                    setStatus('❌ Error generating QR. Click "Force Generate QR Code" button.');
+                }
+            }, 3000);
         } catch (err: any) {
-            console.error('Disconnect error:', err);
-            setStatus('❌ Failed to disconnect');
+            console.error('[WhatsApp Connect] Disconnect error:', err);
+            setStatus('⚠️ Disconnect error. Trying to generate new QR anyway...');
+            
+            // Try to generate QR anyway
+            setTimeout(async () => {
+                try {
+                    await axios.post('http://localhost:3000/api/whatsapp-web/init', {}, {
+                        withCredentials: true,
+                        timeout: 15000
+                    });
+                } catch (initError: any) {
+                    console.error('[WhatsApp Connect] Error generating QR:', initError);
+                }
+            }, 2000);
         }
     };
 
@@ -350,8 +449,37 @@ export default function WhatsAppConnect() {
                         )}
                     </div>
                 )}
+
+                {/* "Messages are fetching..." Modal */}
+                {showFetchingModal && (
+                    <div className="fetching-modal-overlay">
+                        <div className="fetching-modal">
+                            <div className="fetching-spinner"></div>
+                            <h2>Messages are fetching...</h2>
+                            <p>Please wait while we sync your chats and contacts</p>
+                            <p style={{ fontSize: '14px', color: '#667781', marginTop: '8px', fontStyle: 'italic' }}>
+                                ⏳ This may take up to 2 minutes. Please be patient...
+                            </p>
+                            {syncProgress && (syncProgress.total > 0 || syncProgress.totalContacts > 0) && (
+                                <div className="fetching-progress">
+                                    <div className="fetching-progress-bar">
+                                        <div 
+                                            className="fetching-progress-fill"
+                                            style={{ 
+                                                width: `${((syncProgress.current || syncProgress.contactsFetched || 0) / (syncProgress.total || syncProgress.totalContacts || 1)) * 100}%` 
+                                            }}
+                                        />
+                                    </div>
+                                    <p className="fetching-progress-text">
+                                        {syncProgress.contactsFetched || syncProgress.current || 0} / {syncProgress.totalContacts || syncProgress.total || 0} contacts
+                                        {syncProgress.messages > 0 && ` • ${syncProgress.messages} messages`}
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
-
     );
 }

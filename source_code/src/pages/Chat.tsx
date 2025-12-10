@@ -16,6 +16,7 @@ interface Contact {
 interface Message {
     id: string;
     sender: string;
+    senderNumber?: string; // Original phone number
     recipient: string;
     text: string;
     time: string;
@@ -53,12 +54,19 @@ const ContactItem = React.memo<{
                 <div className="flex-1 min-w-0">
                     <div className={`font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'
                         }`}>
-                        {contact.name && contact.name !== contact.number ? contact.name : contact.number}
+                        {contact.name || contact.number}
                     </div>
                     {contact.lastMessageText && (
                         <div className={`text-sm truncate ${isDark ? 'text-gray-400' : 'text-gray-500'
                             }`}>
                             {contact.lastMessageText}
+                        </div>
+                    )}
+                    {/* Show phone number as subtitle if name is different */}
+                    {contact.name && contact.name !== contact.number && (
+                        <div className={`text-xs truncate ${isDark ? 'text-gray-500' : 'text-gray-400'
+                            }`}>
+                            {contact.number}
                         </div>
                     )}
                 </div>
@@ -177,10 +185,36 @@ const Chat: React.FC = () => {
             // Show success notification
             if (data && (data.chats > 0 || data.contacts > 0)) {
                 console.log(`[Chat] Sync complete: ${data.chats} chats, ${data.messages} messages, ${data.contacts} contacts`);
+                if (data.message) {
+                    console.log(`[Chat] ${data.message}`);
+                }
             }
-            refreshContacts();
-            if (activeContact) {
-                fetchMessages(activeContact.number);
+            
+            // CRITICAL: Clear UI state first, then refresh with new data
+            setContacts([]);
+            setMessages([]);
+            setActiveContact(null);
+            
+            // Wait a bit longer to ensure data is saved to database, then refresh
+            setTimeout(() => {
+                console.log('[Chat] Refreshing contacts after sync...');
+                refreshContacts(0); // Start fresh retry
+            }, 1000); // 1 second delay to ensure data is saved
+        });
+
+        // Listen for disconnected event - Clear data when new device is linked
+        socket.on('disconnected', (data: any) => {
+            console.log('[Chat] WhatsApp disconnected', data);
+            // Clear all data when disconnecting (especially when linking new device)
+            setContacts([]);
+            setMessages([]);
+            setActiveContact(null);
+            setLoading(false);
+            
+            if (data?.dataCleared) {
+                console.log('[Chat] ✅ Old data was cleared - ready for new device data');
+                // Show message to user
+                console.log('[Chat] Waiting for new device to sync...');
             }
         });
 
@@ -190,6 +224,7 @@ const Chat: React.FC = () => {
                 socketRef.current.off('connect');
                 socketRef.current.off('new-message');
                 socketRef.current.off('sync-complete');
+                socketRef.current.off('disconnected');
                 socketRef.current.disconnect();
             }
         };
@@ -254,7 +289,7 @@ const Chat: React.FC = () => {
             messagesByContact.get(contactNum)!.push(msg);
         });
 
-        const contactsWithUnread = contactsData.map((contact: Contact) => {
+        const contactsWithUnread = contactsData.map((contact: any) => {
             const contactMessages = messagesByContact.get(contact.number) || [];
             const unreadCount = contactMessages.filter(msg =>
                 msg.sender === contact.number && !msg.read
@@ -266,11 +301,22 @@ const Chat: React.FC = () => {
                 )
                 : null;
 
+            // IMPROVED: Ensure name is properly displayed
+            // Use name if it exists and is different from number, otherwise use number
+            const displayName = (contact.name && 
+                                contact.name.trim() !== '' && 
+                                contact.name !== contact.number &&
+                                !contact.number.includes(contact.name.replace(/\D/g, ''))) 
+                                ? contact.name 
+                                : contact.number;
+
             return {
-                ...contact,
+                number: contact.number,
+                name: displayName, // Always set name properly
                 unreadCount,
                 lastMessageText: lastMessage?.text || '',
-                lastMessageTime: lastMessage?.time || contact.lastMessageTime
+                lastMessageTime: lastMessage?.time || contact.lastMessageTime,
+                isGroup: contact.isGroup || false
             };
         });
 
@@ -536,13 +582,18 @@ const Chat: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                        {activeContact.name && activeContact.name !== activeContact.number
-                                            ? activeContact.name
-                                            : activeContact.number}
+                                        {activeContact.name || activeContact.number}
                                     </h3>
+                                    {/* Always show phone number as subtitle if name exists */}
                                     {activeContact.name && activeContact.name !== activeContact.number && (
                                         <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
                                             {activeContact.number}
+                                        </p>
+                                    )}
+                                    {/* Show number as main if no name */}
+                                    {(!activeContact.name || activeContact.name === activeContact.number) && (
+                                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            WhatsApp Contact
                                         </p>
                                     )}
                                 </div>
@@ -563,8 +614,14 @@ const Chat: React.FC = () => {
                                 messages.map((message) => (
                                     <div
                                         key={message.id}
-                                        className={`flex ${message.type === 'sent' ? 'justify-end' : 'justify-start'}`}
+                                        className={`flex flex-col ${message.type === 'sent' ? 'items-end' : 'items-start'}`}
                                     >
+                                        {/* Show sender name for received messages */}
+                                        {message.type === 'received' && message.sender && message.sender !== 'Me' && (
+                                            <div className={`text-xs mb-1 px-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                {message.sender}
+                                            </div>
+                                        )}
                                         <div
                                             className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${message.type === 'sent'
                                                 ? isDark
