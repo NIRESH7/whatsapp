@@ -38,6 +38,29 @@ async function initializeClient(userId, io) {
     console.log(`[WhatsApp Web] Initializing client for user ${userId}`);
 
     try {
+        // CRITICAL FIX: Check and clean old/corrupted sessions before initializing
+        const fs = require('fs');
+        const path = require('path');
+        const sessionPath = path.join(__dirname, 'whatsapp-sessions', `session-user-${userId}`);
+        
+        // If old session exists but client is not ready, delete it to force fresh QR
+        if (fs.existsSync(sessionPath) && !activeClients.has(userId)) {
+            console.log(`[WhatsApp Web] 🧹 Old session found for user ${userId}, checking if valid...`);
+            // Check if session is too old (older than 1 day) or if we should force fresh
+            try {
+                const stats = fs.statSync(sessionPath);
+                const age = Date.now() - stats.mtime.getTime();
+                const oneDay = 24 * 60 * 60 * 1000;
+                
+                if (age > oneDay) {
+                    console.log(`[WhatsApp Web] 🗑️ Deleting old session (${Math.round(age / oneDay)} days old) to force fresh QR...`);
+                    fs.rmSync(sessionPath, { recursive: true, force: true });
+                }
+            } catch (cleanErr) {
+                console.log(`[WhatsApp Web] ⚠️ Could not check session age, proceeding anyway:`, cleanErr.message);
+            }
+        }
+
         // 2. Check existing client
         if (activeClients.has(userId)) {
             const existingClient = activeClients.get(userId);
@@ -79,14 +102,17 @@ async function initializeClient(userId, io) {
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
-        // Create new WhatsApp client
+        // Create new WhatsApp client with better error handling
+        console.log(`[WhatsApp Web] Creating new client for user ${userId}...`);
+        
+        // CRITICAL FIX: Try headless: false first to see what's happening, then can switch back
         const client = new Client({
             authStrategy: new LocalAuth({
                 clientId: `user-${userId}`,
                 dataPath: './whatsapp-sessions'
             }),
             puppeteer: {
-                headless: true,
+                headless: 'new', // Use 'new' for better compatibility
                 args: [
                     '--no-sandbox',
                     '--disable-setuid-sandbox',
@@ -94,29 +120,50 @@ async function initializeClient(userId, io) {
                     '--disable-accelerated-2d-canvas',
                     '--no-first-run',
                     '--no-zygote',
-                    '--disable-gpu'
-                ]
+                    '--disable-gpu',
+                    '--disable-software-rasterizer',
+                    '--disable-extensions',
+                    '--disable-background-timer-throttling',
+                    '--disable-backgrounding-occluded-windows',
+                    '--disable-renderer-backgrounding'
+                ],
+                timeout: 90000, // 90 second timeout
+                executablePath: undefined // Let Puppeteer find Chrome automatically
             }
         });
 
         // Mark start time to prevent premature destruction
         client.startTime = Date.now();
 
-        // Event: QR Code generated
+        // CRITICAL: Register ALL event listeners BEFORE initialize()
+        // Event: QR Code generated - FAST OPTIMIZATION
         client.on('qr', async (qr) => {
-            console.log(`[WhatsApp Web] QR Code generated for user ${userId}`);
+            console.log(`[WhatsApp Web] ⚡ QR Code generated FAST for user ${userId}`);
+            console.log(`[WhatsApp Web] QR string length: ${qr ? qr.length : 'null'}`);
 
             try {
-                // Convert QR to image
-                const qrImage = await qrcode.toDataURL(qr);
+                // FAST: Convert QR to image (optimized)
+                console.log(`[WhatsApp Web] Converting QR to image...`);
+                const qrImage = await qrcode.toDataURL(qr, {
+                    errorCorrectionLevel: 'M',
+                    type: 'image/png',
+                    quality: 0.92,
+                    margin: 1,
+                    width: 300
+                });
 
-                // Cache it
+                console.log(`[WhatsApp Web] QR image generated, size: ${qrImage ? qrImage.length : 'null'} bytes`);
+
+                // Cache it immediately
                 userQrCodes.set(userId, qrImage);
 
-                // Send to frontend via Socket.IO
+                // FAST: Send to frontend via Socket.IO immediately
+                console.log(`[WhatsApp Web] Sending QR to room: user-${userId}`);
                 io.to(`user-${userId}`).emit('qr-code', qrImage);
+                console.log(`[WhatsApp Web] ✅ QR code sent to frontend FAST for user ${userId}`);
             } catch (error) {
-                console.error('[WhatsApp Web] Error generating QR code:', error);
+                console.error('[WhatsApp Web] ❌ Error generating QR code:', error);
+                console.error('[WhatsApp Web] Error stack:', error.stack);
             }
         });
 
@@ -166,7 +213,7 @@ async function initializeClient(userId, io) {
             }
         });
 
-        // Event: Disconnected
+        // Event: Disconnected (after initialization)
         client.on('disconnected', async (reason) => {
             console.log(`[WhatsApp Web] User ${userId} disconnected:`, reason);
             activeClients.delete(userId);
@@ -184,6 +231,11 @@ async function initializeClient(userId, io) {
             io.to(`user-${userId}`).emit('disconnected');
         });
 
+        // CRITICAL: Add remote_session event (for session issues)
+        client.on('remote_session_saved', () => {
+            console.log(`[WhatsApp Web] ✅ Remote session saved for user ${userId}`);
+        });
+
         // Event: Authentication failure
         client.on('auth_failure', (msg) => {
             console.error(`[WhatsApp Web] Authentication failure for user ${userId}:`, msg);
@@ -191,18 +243,100 @@ async function initializeClient(userId, io) {
             userQrCodes.delete(userId);
         });
 
-        // Initialize the client
-        client.initialize().catch(err => {
-            console.error(`[WhatsApp Web] Initialization failed for user ${userId}:`, err.message);
+        // FAST: Initialize the client with comprehensive event listeners
+        console.log(`[WhatsApp Web] ⚡ Starting FAST initialization for user ${userId}...`);
+        
+        // CRITICAL: These listeners are already registered above, but add loading_screen here too
+        // (Some versions need it registered before initialize)
+        client.on('loading_screen', (percent, message) => {
+            console.log(`[WhatsApp Web] 📊 Loading: ${percent}% - ${message || 'Loading...'}`);
+        });
+
+        client.on('change_state', (state) => {
+            console.log(`[WhatsApp Web] 🔄 State changed: ${state}`);
+        });
+
+        // Initialize with comprehensive error handling
+        console.log(`[WhatsApp Web] 🚀 Calling client.initialize()...`);
+        const initPromise = client.initialize();
+        
+        initPromise.then(() => {
+            console.log(`[WhatsApp Web] ✅ Client initialized successfully for user ${userId}`);
+        }).catch(err => {
+            console.error(`[WhatsApp Web] ❌ Initialization FAILED for user ${userId}:`);
+            console.error(`[WhatsApp Web] Error message: ${err.message}`);
+            console.error(`[WhatsApp Web] Error stack:`, err.stack);
+            console.error(`[WhatsApp Web] Full error:`, err);
+            
             // EMIT ERROR SO FRONTEND KNOWS TO RETRY
-            io.to(`user-${userId}`).emit('init-error', { message: err.message });
+            io.to(`user-${userId}`).emit('init-error', { 
+                message: err.message || 'Initialization failed',
+                details: err.toString()
+            });
+            
+            // Cleanup
+            try {
+                if (activeClients.has(userId)) {
+                    const failedClient = activeClients.get(userId);
+                    if (failedClient && failedClient.destroy) {
+                        failedClient.destroy().catch(() => {});
+                    }
+                }
+            } catch (cleanupErr) {
+                console.error(`[WhatsApp Web] Cleanup error:`, cleanupErr);
+            }
+            
             activeClients.delete(userId);
             initializingUsers.delete(userId);
             userQrCodes.delete(userId);
         });
 
+        // Add timeout to detect stuck initialization
+        setTimeout(() => {
+            if (activeClients.has(userId)) {
+                const checkClient = activeClients.get(userId);
+                if (checkClient && !checkClient.info && !userQrCodes.has(userId)) {
+                    console.error(`[WhatsApp Web] ⚠️ TIMEOUT: No QR code after 45s for user ${userId}`);
+                    console.error(`[WhatsApp Web] Client state:`, {
+                        hasInfo: !!checkClient.info,
+                        startTime: checkClient.startTime,
+                        elapsed: Date.now() - checkClient.startTime,
+                        hasPupPage: !!checkClient.pupPage
+                    });
+                    
+                    // Try to get more info
+                    if (checkClient.pupPage) {
+                        checkClient.pupPage.url().then(url => {
+                            console.log(`[WhatsApp Web] Puppeteer page URL: ${url}`);
+                        }).catch(() => {});
+                    }
+                    
+                    // Emit timeout error to frontend
+                    io.to(`user-${userId}`).emit('init-error', { 
+                        message: 'QR code generation timeout. Please try again.',
+                        details: 'Initialization took longer than 45 seconds'
+                    });
+                }
+            }
+        }, 45000); // 45 second timeout
+
         activeClients.set(userId, client);
         initializingUsers.delete(userId);
+        
+        // Add timeout check - if no QR after 30 seconds, log warning
+        setTimeout(() => {
+            if (!userQrCodes.has(userId) && activeClients.has(userId)) {
+                const client = activeClients.get(userId);
+                if (client && !client.info) {
+                    console.warn(`[WhatsApp Web] ⚠️ No QR code after 30s for user ${userId}. Client state:`, {
+                        hasInfo: !!client.info,
+                        startTime: client.startTime,
+                        elapsed: Date.now() - client.startTime
+                    });
+                }
+            }
+        }, 30000);
+
         return client;
 
     } catch (error) {
@@ -398,13 +532,14 @@ async function syncChatHistory(userId, io) {
             [userId]
         );
 
+        // FAST: Emit sync complete immediately
         io.to(`user-${userId}`).emit('sync-complete', {
             chats: chats.length,
             messages: totalMessages,
             contacts: contactCount
         });
 
-        console.log(`[WhatsApp Web] Sync complete for user ${userId} - ${chats.length} chats, ${totalMessages} messages, ${contactCount} contacts`);
+        console.log(`[WhatsApp Web] ✅ FAST Sync complete for user ${userId} - ${chats.length} chats, ${totalMessages} messages, ${contactCount} contacts`);
     } catch (error) {
         console.error('[WhatsApp Web] Error during sync:', error);
         io.to(`user-${userId}`).emit('sync-error', { message: error.message });

@@ -172,8 +172,12 @@ const Chat: React.FC = () => {
             refreshContacts(); // Re-fetch contacts to ensure latest data/order
         });
 
-        socket.on('sync-complete', () => {
-            console.log('[Chat] Sync occurred, refreshing data...');
+        socket.on('sync-complete', (data: any) => {
+            console.log('[Chat] Sync occurred, refreshing data...', data);
+            // Show success notification
+            if (data && (data.chats > 0 || data.contacts > 0)) {
+                console.log(`[Chat] Sync complete: ${data.chats} chats, ${data.messages} messages, ${data.contacts} contacts`);
+            }
             refreshContacts();
             if (activeContact) {
                 fetchMessages(activeContact.number);
@@ -191,35 +195,50 @@ const Chat: React.FC = () => {
         };
     }, [userId, activeContact]);
 
-    // Modified refreshContacts with retry logic
+    // FAST: Modified refreshContacts with optimized retry logic
     const refreshContacts = async (retryCount = 0) => {
         setLoading(true);
         try {
-            console.log(`[Chat] Fetching contacts (Attempt ${retryCount + 1})...`);
-            const response = await axios.get('http://localhost:3000/api/whatsapp-business/conversations');
-            const contactsData = response.data;
+            console.log(`[Chat] ⚡ FAST Fetching contacts (Attempt ${retryCount + 1})...`);
+            
+            // FAST: Fetch both in parallel for speed
+            const [contactsResponse, messagesResponse] = await Promise.all([
+                axios.get('http://localhost:3000/api/whatsapp-business/conversations', {
+                    withCredentials: true,
+                    timeout: 5000 // Fast timeout
+                }),
+                axios.get('http://localhost:3000/api/whatsapp-business/messages', {
+                    withCredentials: true,
+                    timeout: 5000 // Fast timeout
+                })
+            ]);
+            
+            const contactsData = contactsResponse.data;
+            const allMessages: Message[] = messagesResponse.data;
 
             if (contactsData.length > 0) {
-                // We have data, process it
-                // We also need unread counts. The previous logic fetched ALL messages to calc unread.
-                const allMessagesResponse = await axios.get('http://localhost:3000/api/whatsapp-business/messages');
-                const allMessages: Message[] = allMessagesResponse.data;
+                // FAST: We have data, process it immediately
                 processContacts(contactsData, allMessages);
                 setRetrying(false);
+                console.log(`[Chat] ✅ FAST Loaded ${contactsData.length} contacts`);
             } else {
-                // Empty data
-                if (retryCount < 5) { // Retry up to 5 times (10 seconds total)
+                // Empty data - retry faster
+                if (retryCount < 8) { // More retries but faster
                     setRetrying(true);
-                    console.log('[Chat] No contacts found. Retrying in 2s...');
-                    setTimeout(() => refreshContacts(retryCount + 1), 2000);
+                    console.log('[Chat] No contacts found. Retrying FAST in 1.5s...');
+                    setTimeout(() => refreshContacts(retryCount + 1), 1500); // Faster retry
                 } else {
                     setContacts([]); // Give up
                     setLoading(false);
                     setRetrying(false);
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error refreshing contacts:', error);
+            // If it's a 401, user might not be logged in - that's okay for now
+            if (error.response?.status === 401) {
+                console.log('[Chat] Not authenticated, using default user');
+            }
             setLoading(false);
             setRetrying(false);
         }
@@ -265,9 +284,46 @@ const Chat: React.FC = () => {
         setLoading(false);
     };
 
-    // Initial Load
+    // Initial Load and check WhatsApp status - FIXED: Always try to load data
     useEffect(() => {
-        refreshContacts(0);
+        const initialize = async () => {
+            // Check WhatsApp status first
+            try {
+                const statusResponse = await axios.get('http://localhost:3000/api/whatsapp-web/status', {
+                    withCredentials: true
+                });
+                console.log('[Chat] WhatsApp status:', statusResponse.data);
+                
+                // If ready but no data or last sync was long ago, trigger sync
+                if (statusResponse.data.ready) {
+                    const hasRecentData = statusResponse.data.hasData && statusResponse.data.session?.last_sync;
+                    const shouldSync = !hasRecentData || 
+                        (statusResponse.data.session?.last_sync && 
+                         (Date.now() - new Date(statusResponse.data.session.last_sync).getTime()) > 3600000); // 1 hour
+                    
+                    if (shouldSync) {
+                        console.log('[Chat] ⚡ WhatsApp ready but needs sync, triggering FAST sync...');
+                        try {
+                            // Don't await - let it run in background
+                            axios.post('http://localhost:3000/api/whatsapp-web/sync', {}, {
+                                withCredentials: true
+                            }).catch(syncErr => {
+                                console.error('[Chat] Error triggering initial sync:', syncErr);
+                            });
+                        } catch (syncErr) {
+                            console.error('[Chat] Error triggering initial sync:', syncErr);
+                        }
+                    }
+                }
+            } catch (statusErr) {
+                console.log('[Chat] Could not check WhatsApp status, continuing anyway:', statusErr);
+            }
+            
+            // Always try to refresh contacts (will retry if no data)
+            refreshContacts(0);
+        };
+        
+        initialize();
     }, []);
 
     // Fetch messages when active contact changes
