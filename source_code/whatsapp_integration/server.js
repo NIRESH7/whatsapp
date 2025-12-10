@@ -13,9 +13,22 @@ const socketIo = require('socket.io');
 const whatsappWebService = require('./whatsapp-web-service');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:5175', 'http://localhost:3000'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
+}));
 app.use(bodyParser.json());
-app.use(session({ secret: 'keyboard cat', resave: false, saveUninitialized: false }));
+app.use(session({
+    secret: 'keyboard cat',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // Set to true if using HTTPS
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -824,7 +837,8 @@ io.on('connection', (socket) => {
 
 // Initialize WhatsApp Web session
 app.post('/api/whatsapp-web/init', async (req, res) => {
-    const userId = req.user?.id || 1; // Default to user 1 for testing
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = req.user.id;
 
     try {
         await whatsappWebService.initializeClient(userId, io);
@@ -837,7 +851,8 @@ app.post('/api/whatsapp-web/init', async (req, res) => {
 
 // Check WhatsApp Web status
 app.get('/api/whatsapp-web/status', async (req, res) => {
-    const userId = req.user?.id || 1;
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = req.user.id;
 
     try {
         const client = whatsappWebService.getClient(userId);
@@ -863,7 +878,8 @@ app.get('/api/whatsapp-web/status', async (req, res) => {
 
 // Sync chat history
 app.post('/api/whatsapp-web/sync', async (req, res) => {
-    const userId = req.user?.id || 1;
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = req.user.id;
 
     try {
         // Start sync in background
@@ -935,7 +951,8 @@ app.get('/api/whatsapp-web/chats', async (req, res) => {
 
 // Disconnect WhatsApp Web
 app.post('/api/whatsapp-web/disconnect', async (req, res) => {
-    const userId = req.user?.id || 1;
+    if (!req.isAuthenticated()) return res.status(401).json({ error: 'Unauthorized' });
+    const userId = req.user.id;
 
     try {
         await whatsappWebService.disconnectClient(userId);
@@ -1060,5 +1077,16 @@ app.post('/api/whatsapp-web/send', async (req, res) => {
 server.listen(PORT, () => {
     console.log(`Server is listening on port ${PORT}`);
     console.log(`Socket.IO is ready for WhatsApp Web connections`);
+});
+
+// Prevent crash on unhandled errors
+process.on('uncaughtException', (err) => {
+    console.error('UNCAUGHT EXCEPTION:', err);
+    // Keep server running
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('UNHANDLED REJECTION:', reason);
+    // Keep server running
 });
 

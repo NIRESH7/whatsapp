@@ -6,21 +6,48 @@ import './WhatsAppConnect.css';
 
 export default function WhatsAppConnect() {
     const [qrCode, setQrCode] = useState<string | null>(null);
-    const [status, setStatus] = useState<string>('Click the button below to generate QR code');
+    const [status, setStatus] = useState<string>('Connecting to server...');
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [syncProgress, setSyncProgress] = useState<any>(null);
     const [phoneNumber, setPhoneNumber] = useState<string | null>(null);
-    const [showQRButton, setShowQRButton] = useState(true);
+    const [showQRButton, setShowQRButton] = useState(true); // Keeping for fallback
     const [isInitializing, setIsInitializing] = useState(false);
+    const [socketConnected, setSocketConnected] = useState(false);
+    const [userId, setUserId] = useState<number | null>(null);
     const socketRef = useRef<Socket | null>(null);
     const navigate = useNavigate();
 
+    // Auto-init ref to prevent double firing
+    const hasAutoInitialized = useRef(false);
+
     useEffect(() => {
-        // Get user ID (default to 1 for now)
-        const userId = 1;
+        // Ensure credentials are sent with requests
+        axios.defaults.withCredentials = true;
+
+        // Fetch current user
+        axios.get('http://localhost:3000/api/current_user')
+            .then(res => {
+                if (res.data && res.data.id) {
+                    setUserId(res.data.id);
+                    console.log('[WhatsApp Connect] Logged in as user:', res.data.id);
+                } else {
+                    console.error('[WhatsApp Connect] Not logged in');
+                    setStatus('❌ Not logged in. Please log in first.');
+                    // navigate('/login'); // Optional: handled by App.tsx
+                }
+            })
+            .catch(err => {
+                console.error('[WhatsApp Connect] Auth check failed:', err);
+                setStatus('❌ Authentication error. Is the backend running?');
+            });
+    }, []);
+
+    useEffect(() => {
+        if (!userId) return; // Wait for user ID
 
         // Initialize socket connection
         const socket = io('http://localhost:3000', {
+            withCredentials: true, // IMPORTANT: Send cookies with socket handshake
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionAttempts: 5,
@@ -32,27 +59,21 @@ export default function WhatsAppConnect() {
         // Handle socket connection
         socket.on('connect', () => {
             console.log('[WhatsApp Connect] Socket connected:', socket.id);
-            // Join user room after connection
+            setSocketConnected(true);
             socket.emit('join-room', userId);
-            console.log('[WhatsApp Connect] Joined room for user', userId);
         });
-
-        // If already connected, join room immediately
-        if (socket.connected) {
-            socket.emit('join-room', userId);
-            console.log('[WhatsApp Connect] Socket already connected, joining room:', userId);
-        }
 
         socket.on('connect_error', (error) => {
             console.error('[WhatsApp Connect] Socket connection error:', error);
             setStatus('❌ Failed to connect to server. Make sure the backend is running on port 3000.');
             setIsInitializing(false);
+            setSocketConnected(false);
         });
 
         socket.on('disconnect', (reason) => {
             console.log('[WhatsApp Connect] Socket disconnected:', reason);
+            setSocketConnected(false);
             if (reason === 'io server disconnect') {
-                // Server disconnected, try to reconnect
                 socket.connect();
             }
         });
@@ -76,15 +97,15 @@ export default function WhatsAppConnect() {
         // Listen for ready
         socket.on('ready', async (data: any) => {
             console.log('[WhatsApp Connect] WhatsApp Web ready:', data);
-            setStatus(`✅ Connected as +${data.phoneNumber}! Starting sync...`);
+            setStatus(`✅ Connected! Fetching data...`);
             setPhoneNumber(data.phoneNumber);
             setQrCode(null);
-            
+            setIsAuthenticated(true);
+
             // Auto-start sync after connection
             try {
                 console.log('[WhatsApp Connect] Auto-starting sync...');
                 await axios.post('http://localhost:3000/api/whatsapp-web/sync');
-                console.log('[WhatsApp Connect] Sync started');
             } catch (err: any) {
                 console.error('[WhatsApp Connect] Sync error:', err);
                 setStatus('❌ Failed to start sync. Please try manually.');
@@ -93,7 +114,6 @@ export default function WhatsAppConnect() {
 
         // Listen for sync progress
         socket.on('sync-progress', (progress: any) => {
-            console.log('[WhatsApp Connect] Sync progress:', progress);
             setSyncProgress(progress);
             if (progress.total > 0) {
                 setStatus(`Syncing... ${progress.current}/${progress.total} chats`);
@@ -105,32 +125,39 @@ export default function WhatsAppConnect() {
         // Listen for sync complete
         socket.on('sync-complete', (data: any) => {
             console.log('[WhatsApp Connect] Sync complete:', data);
-            setStatus(`✅ Sync complete! ${data.chats} chats, ${data.messages} messages, ${data.contacts} contacts`);
+            setStatus(`✅ Fetched Successfully! Redirecting...`);
             setSyncProgress(null);
 
-            // Redirect to chat page after 2 seconds
+            // Redirect IMMEDIATELY
             setTimeout(() => {
                 navigate('/chat');
-            }, 2000);
+            }, 100);
         });
 
         // Listen for sync error
         socket.on('sync-error', (error: any) => {
             console.error('[WhatsApp Connect] Sync error:', error);
-            setStatus(`❌ Sync failed: ${error.message}`);
-            setSyncProgress(null);
+            // Even if sync errors (e.g. non-critical), we might want to redirect if we have data
+            setStatus(`Note: Sync incomplete (${error.message}). Redirecting...`);
+            setTimeout(() => {
+                navigate('/chat');
+            }, 2000);
         });
 
         // Listen for disconnection
         socket.on('disconnected', () => {
             console.log('[WhatsApp Connect] Disconnected');
-            setStatus('Disconnected. Please click the button to reconnect.');
+            setStatus('Disconnected. Preparing new session...');
             setIsAuthenticated(false);
             setQrCode(null);
             setShowQRButton(true);
+            setPhoneNumber(null);
+            hasAutoInitialized.current = false; // Allow auto-init again
+
+            // Auto-trigger init again explicitly (optional, but good for flow)
+            // We'll let the dependency array handle it
         });
 
-        // Listen for auth failure
         socket.on('auth-failure', (data: any) => {
             console.error('[WhatsApp Connect] Auth failure:', data);
             setStatus(`❌ Authentication failed: ${data.message}`);
@@ -139,67 +166,74 @@ export default function WhatsAppConnect() {
             setIsInitializing(false);
         });
 
+        socket.on('init-error', (data: any) => {
+            console.error('[WhatsApp Connect] Init error:', data);
+            setStatus(`❌ Initialization failed: ${data.message}. Retrying...`);
+            setIsInitializing(false);
+            setQrCode(null);
+            setShowQRButton(true);
+            hasAutoInitialized.current = false;
+
+            // Auto-retry in 5s
+            setTimeout(() => handleGenerateQR(), 5000);
+        });
+
         return () => {
-            socket.off('connect');
-            socket.off('connect_error');
-            socket.off('disconnect');
-            socket.off('qr-code');
-            socket.off('authenticated');
-            socket.off('ready');
-            socket.off('sync-progress');
-            socket.off('sync-complete');
-            socket.off('sync-error');
-            socket.off('disconnected');
-            socket.off('auth-failure');
+            socket.removeAllListeners();
+            socket.disconnect();
         };
-    }, [navigate]);
+    }, [navigate, userId]);
+
+    // Auto-generate QR Logic
+    useEffect(() => {
+        if (socketConnected && !isAuthenticated && !qrCode && !isInitializing && !phoneNumber && !hasAutoInitialized.current) {
+            console.log('[WhatsApp Connect] Auto-triggering QR generation...');
+            handleGenerateQR();
+        }
+    }, [socketConnected, isAuthenticated, qrCode, isInitializing, phoneNumber]);
 
     const handleGenerateQR = async () => {
-        if (isInitializing) return;
+        // if (isInitializing) return; // Allow retry if needed but keep safety
 
         try {
             setIsInitializing(true);
+            hasAutoInitialized.current = true;
             setShowQRButton(false);
-            setStatus('Connecting to server...');
-            
-            // Wait for socket connection
-            if (!socketRef.current?.connected) {
-                await new Promise((resolve) => {
-                    if (socketRef.current?.connected) {
-                        resolve(true);
-                    } else {
-                        socketRef.current?.once('connect', resolve);
-                        setTimeout(resolve, 5000); // Timeout after 5 seconds
-                    }
-                });
-            }
+            setStatus('Generating QR scanner...');
 
             // Initialize WhatsApp Web client
             const response = await axios.post('http://localhost:3000/api/whatsapp-web/init');
             console.log('[WhatsApp Connect] WhatsApp Web initialized:', response.data);
-            setStatus('Generating QR code...');
+            setStatus('Generating QR scanner...');
         } catch (err: any) {
             console.error('[WhatsApp Connect] Init error:', err);
             setIsInitializing(false);
             setShowQRButton(true);
+            hasAutoInitialized.current = false; // Reset on failure
             if (err.code === 'ECONNREFUSED' || err.message?.includes('Network Error')) {
-                setStatus('❌ Cannot connect to server. Make sure the backend is running on port 3000.');
+                setStatus('❌ Cannot connect to server. Is backend running?');
             } else {
-                setStatus(`❌ Failed to initialize: ${err.response?.data?.error || err.message}. Please try again.`);
+                setStatus(`❌ Failed to initialize. Retrying...`);
+                // Auto-retry in 3s
+                setTimeout(() => handleGenerateQR(), 3000);
             }
         }
     };
 
-    const handleSync = () => {
-        setStatus('Starting sync...');
-        axios.post('http://localhost:3000/api/whatsapp-web/sync')
-            .then(() => {
-                console.log('[WhatsApp Connect] Sync started');
-            })
-            .catch(err => {
-                console.error('[WhatsApp Connect] Sync error:', err);
-                setStatus('❌ Failed to start sync');
-            });
+    const handleDisconnect = async () => {
+        // Explicitly confirm with user as this is a destructive action
+        if (!confirm('Are you sure you want to disconnect and link a new device?')) return;
+
+        setStatus('Disconnecting... (This calls for a new QR code)');
+        hasAutoInitialized.current = false; // Reset to allow immediate re-init
+
+        try {
+            await axios.post('http://localhost:3000/api/whatsapp-web/disconnect');
+            // State reset happens in 'disconnected' socket event, which triggers auto-init
+        } catch (err: any) {
+            console.error('Disconnect error:', err);
+            setStatus('❌ Failed to disconnect');
+        }
     };
 
     return (
@@ -214,32 +248,6 @@ export default function WhatsAppConnect() {
                     <p className="subtitle">Scan the QR code to import all your chats and contacts</p>
                 </div>
 
-                {/* Show QR Button First */}
-                {showQRButton && !qrCode && !isAuthenticated && (
-                    <div className="qr-button-section">
-                        <button 
-                            onClick={handleGenerateQR} 
-                            className="generate-qr-button"
-                            disabled={isInitializing}
-                        >
-                            {isInitializing ? (
-                                <>
-                                    <div className="spinner"></div>
-                                    <span>Generating QR Code...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                                        <path d="M9 9h6v6H9z"></path>
-                                    </svg>
-                                    <span>Generate QR Code</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
-                )}
-
                 {/* Show QR Code */}
                 {qrCode && (
                     <div className="qr-section">
@@ -251,58 +259,71 @@ export default function WhatsAppConnect() {
                                 <li>Tap <strong>Menu</strong> or <strong>Settings</strong></li>
                                 <li>Tap <strong>Linked Devices</strong></li>
                                 <li>Tap <strong>Link a Device</strong></li>
-                                <li>Point your phone at this screen to scan the QR code</li>
+                                <li>Scan the QR Code</li>
                             </ol>
                         </div>
                     </div>
                 )}
 
-                <div className="status-section">
-                    <div className="status-indicator">
-                        {status.includes('❌') && <span className="status-icon error">✕</span>}
-                        {status.includes('✅') && <span className="status-icon success">✓</span>}
-                        {!status.includes('❌') && !status.includes('✅') && !showQRButton && (
-                            <div className="spinner"></div>
-                        )}
-                        <p className="status">{status}</p>
-                    </div>
+                <div className="status-indicator">
+                    {status.includes('❌') && <span className="status-icon error">✕</span>}
+                    {status.includes('✅') && <span className="status-icon success">✓</span>}
+                    {status.includes('Scan') && <span className="status-icon info">ℹ️</span>}
+                    {!status.includes('❌') && !status.includes('✅') && !status.includes('Scan') && (
+                        <div className="spinner"></div>
+                    )}
+                    <p className="status">{status}</p>
 
-                    {/* Manual sync button (if needed) */}
-                    {isAuthenticated && phoneNumber && !syncProgress && !qrCode && (
-                        <button onClick={handleSync} className="sync-button">
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                            </svg>
-                            Import Chat History
+                    {/* Fallback Manual Button if stuck */}
+                    {!status.includes('Scan') && !status.includes('✅') && (
+                        <button
+                            onClick={handleGenerateQR}
+                            className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                            Force Generate QR Code
                         </button>
                     )}
-
-                    {/* Sync Progress */}
-                    {syncProgress && (
-                        <div className="progress-section">
-                            <h3>Syncing your chats...</h3>
-                            <div className="progress-stats">
-                                <div className="stat">
-                                    <span className="stat-label">Chats:</span>
-                                    <span className="stat-value">{syncProgress.current} / {syncProgress.total || 0}</span>
-                                </div>
-                                <div className="stat">
-                                    <span className="stat-label">Messages:</span>
-                                    <span className="stat-value">{syncProgress.messages || 0}</span>
-                                </div>
-                            </div>
-                            {syncProgress.total > 0 && (
-                                <div className="progress-bar">
-                                    <div
-                                        className="progress-fill"
-                                        style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
-                                    />
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
+
+                {/* Link New Device Button */}
+                {isAuthenticated && (
+                    <div style={{ marginTop: '20px' }}>
+                        <button
+                            onClick={handleDisconnect}
+                            className="sync-button"
+                            style={{ backgroundColor: '#dc2626' }} // Red for warning
+                        >
+                            Link New Device
+                        </button>
+                    </div>
+                )}
+
+                {/* Sync Progress */}
+                {syncProgress && (
+                    <div className="progress-section">
+                        <h3>Syncing your chats...</h3>
+                        <div className="progress-stats">
+                            <div className="stat">
+                                <span className="stat-label">Chats:</span>
+                                <span className="stat-value">{syncProgress.current} / {syncProgress.total || 0}</span>
+                            </div>
+                            <div className="stat">
+                                <span className="stat-label">Messages:</span>
+                                <span className="stat-value">{syncProgress.messages || 0}</span>
+                            </div>
+                        </div>
+                        {syncProgress.total > 0 && (
+                            <div className="progress-bar">
+                                <div
+                                    className="progress-fill"
+                                    style={{ width: `${(syncProgress.current / syncProgress.total) * 100}%` }}
+                                />
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
+
     );
 }

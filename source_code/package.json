@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"cd whatsapp_integration && node server.js\" \"cd whatsapp_integration/client && npm run dev\"",
+    "dev": "concurrently \"vite\" \"cd whatsapp_integration/client && npm run dev\"",
+    "server": "cd whatsapp_integration && node server.js",
     "dev:client": "vite",
     "build": "vite build",
     "preview": "vite preview",

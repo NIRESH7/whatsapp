@@ -11,7 +11,10 @@ const pool = new Pool({
 });
 
 // Store active WhatsApp clients (one per user)
+// Store active WhatsApp clients (one per user)
 const activeClients = new Map();
+// Store latest QR code for each user to handle refreshes/race conditions
+const userQrCodes = new Map();
 
 // Locks to prevent race conditions
 const initializingUsers = new Set();
@@ -20,8 +23,14 @@ const initializingUsers = new Set();
  * Initialize WhatsApp client for a user
  */
 async function initializeClient(userId, io) {
+    // 1. Handle in-progress initialization
     if (initializingUsers.has(userId)) {
-        console.log(`[WhatsApp Web] Initialization already in progress for user ${userId}. Skipping.`);
+        console.log(`[WhatsApp Web] Initialization already in progress for user ${userId}.`);
+        // If we have a QR code ready, send it to the (possibly new) socket connection!
+        if (userQrCodes.has(userId)) {
+            console.log(`[WhatsApp Web] Emitting cached QR code for user ${userId}`);
+            io.to(`user-${userId}`).emit('qr-code', userQrCodes.get(userId));
+        }
         return activeClients.get(userId);
     }
 
@@ -29,28 +38,45 @@ async function initializeClient(userId, io) {
     console.log(`[WhatsApp Web] Initializing client for user ${userId}`);
 
     try {
-        // Check if client already exists and is ready
+        // 2. Check existing client
         if (activeClients.has(userId)) {
             const existingClient = activeClients.get(userId);
-            // If client exists but QR is needed, reinitialize
+
             if (existingClient.info && existingClient.info.wid) {
+                // Already authenticated
                 console.log(`[WhatsApp Web] Client already exists and is ready for user ${userId}`);
-                // Emit ready event again
                 io.to(`user-${userId}`).emit('ready', { phoneNumber: existingClient.info.wid.user });
                 initializingUsers.delete(userId);
                 return existingClient;
-            } else {
-                // Client exists but not ready, destroy and recreate
-                console.log(`[WhatsApp Web] Client exists but not ready, reinitializing...`);
-                try {
-                    await existingClient.destroy();
-                } catch (e) {
-                    console.error('[WhatsApp Web] Error destroying existing client (ignoring):', e.message);
-                }
-                activeClients.delete(userId);
-                // Wait a moment for resources to free up
-                await new Promise(resolve => setTimeout(resolve, 2000));
             }
+
+            // Client exists but not fully ready. 
+            // Check if we have a valid QR code cached (optimization)
+            if (userQrCodes.has(userId)) {
+                console.log(`[WhatsApp Web] Client exists and has valid QR. Emitting cached QR...`);
+                io.to(`user-${userId}`).emit('qr-code', userQrCodes.get(userId));
+                initializingUsers.delete(userId);
+                return existingClient;
+            }
+
+            // CHECK: Is it still warming up? (Grace period of 20 seconds)
+            if (existingClient.startTime && (Date.now() - existingClient.startTime < 20000)) {
+                console.log(`[WhatsApp Web] Client matches user ${userId} and is still starting up (${Date.now() - existingClient.startTime}ms). Waiting...`);
+                initializingUsers.delete(userId);
+                return existingClient;
+            }
+
+            // No valid QR, not ready, and timed out -> Destroy and retry
+            console.log(`[WhatsApp Web] Client exists but stalled (not ready/no QR for >20s), reinitializing...`);
+            try {
+                await existingClient.destroy();
+            } catch (e) {
+                console.error('[WhatsApp Web] Error destroying existing client (ignoring):', e.message);
+            }
+            activeClients.delete(userId);
+            userQrCodes.delete(userId);
+            // Wait a moment for resources to free up
+            await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
         // Create new WhatsApp client
@@ -73,6 +99,9 @@ async function initializeClient(userId, io) {
             }
         });
 
+        // Mark start time to prevent premature destruction
+        client.startTime = Date.now();
+
         // Event: QR Code generated
         client.on('qr', async (qr) => {
             console.log(`[WhatsApp Web] QR Code generated for user ${userId}`);
@@ -80,6 +109,9 @@ async function initializeClient(userId, io) {
             try {
                 // Convert QR to image
                 const qrImage = await qrcode.toDataURL(qr);
+
+                // Cache it
+                userQrCodes.set(userId, qrImage);
 
                 // Send to frontend via Socket.IO
                 io.to(`user-${userId}`).emit('qr-code', qrImage);
@@ -92,11 +124,13 @@ async function initializeClient(userId, io) {
         client.on('authenticated', () => {
             console.log(`[WhatsApp Web] User ${userId} authenticated`);
             io.to(`user-${userId}`).emit('authenticated');
+            userQrCodes.delete(userId); // Clear QR on auth
         });
 
         // Event: Client ready
         client.on('ready', async () => {
             console.log(`[WhatsApp Web] Client ready for user ${userId}`);
+            userQrCodes.delete(userId); // Ensure cleared
 
             try {
                 // Get phone number
@@ -136,6 +170,7 @@ async function initializeClient(userId, io) {
         client.on('disconnected', async (reason) => {
             console.log(`[WhatsApp Web] User ${userId} disconnected:`, reason);
             activeClients.delete(userId);
+            userQrCodes.delete(userId);
 
             try {
                 await pool.query(
@@ -153,13 +188,17 @@ async function initializeClient(userId, io) {
         client.on('auth_failure', (msg) => {
             console.error(`[WhatsApp Web] Authentication failure for user ${userId}:`, msg);
             io.to(`user-${userId}`).emit('auth-failure', { message: msg });
+            userQrCodes.delete(userId);
         });
 
         // Initialize the client
         client.initialize().catch(err => {
             console.error(`[WhatsApp Web] Initialization failed for user ${userId}:`, err.message);
+            // EMIT ERROR SO FRONTEND KNOWS TO RETRY
+            io.to(`user-${userId}`).emit('init-error', { message: err.message });
             activeClients.delete(userId);
             initializingUsers.delete(userId);
+            userQrCodes.delete(userId);
         });
 
         activeClients.set(userId, client);
@@ -169,6 +208,7 @@ async function initializeClient(userId, io) {
     } catch (error) {
         console.error(`[WhatsApp Web] Error initializing client for user ${userId}:`, error);
         initializingUsers.delete(userId);
+        userQrCodes.delete(userId);
         throw error;
     }
 }
@@ -186,8 +226,29 @@ async function syncChatHistory(userId, io) {
     console.log(`[WhatsApp Web] Starting chat sync for user ${userId}`);
 
     // WAIT for client to fully load storage (critical fix for empty sync)
-    console.log('[WhatsApp Web] Waiting 10s for client resources...');
-    await new Promise(resolve => setTimeout(resolve, 10000));
+    console.log('[WhatsApp Web] Waiting for client resources...');
+
+    // Poll for window.Store (max 10s)
+    let resourcesReady = false;
+    for (let i = 0; i < 20; i++) {
+        try {
+            if (client.pupPage) {
+                const ready = await client.pupPage.evaluate(() => typeof window.Store !== 'undefined');
+                if (ready) {
+                    resourcesReady = true;
+                    console.log('[WhatsApp Web] Client resources ready.');
+                    break;
+                }
+            }
+        } catch (e) {
+            // ignore error during polling
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    if (!resourcesReady) {
+        console.log('[WhatsApp Web] Timeout waiting for resources, proceeding anyway...');
+    }
 
     try {
         // Get all chats with retry logic and page reload fallback
@@ -247,7 +308,7 @@ async function syncChatHistory(userId, io) {
                 // Extract contact number
                 const contactNumber = chat.id.user || chat.id._serialized.split('@')[0];
                 const contactName = chat.name || chat.pushname || null;
-                
+
                 // Save chat metadata
                 await pool.query(
                     `INSERT INTO whatsapp_chats (user_id, chat_id, contact_number, is_group, group_name, last_message_time)
@@ -308,7 +369,7 @@ async function syncChatHistory(userId, io) {
         try {
             const contacts = await client.getContacts();
             console.log(`[WhatsApp Web] Found ${contacts.length} contacts from getContacts()`);
-            
+
             for (const contact of contacts) {
                 if (contact.isMyContact || contact.isUser) {
                     try {
@@ -359,7 +420,7 @@ async function saveMessage(userId, message) {
         // Extract contact info from message
         const senderNumber = message.fromMe ? null : (message.author || message.from || '').split('@')[0];
         const contactName = message.notifyName || message._data?.notifyName || null;
-        
+
         await pool.query(
             `INSERT INTO whatsapp_web_messages 
              (user_id, message_id, chat_id, sender, message_text, message_type, is_from_me, timestamp)
@@ -430,7 +491,7 @@ function isClientReady(userId) {
  */
 async function sendMessage(userId, phoneNumber, messageText) {
     const client = activeClients.get(userId);
-    
+
     if (!client) {
         throw new Error('WhatsApp client not initialized');
     }
@@ -448,10 +509,10 @@ async function sendMessage(userId, phoneNumber, messageText) {
 
         // Send message
         const message = await client.sendMessage(formattedNumber, messageText);
-        
+
         // Save message to database
         await saveMessage(userId, message);
-        
+
         return message;
     } catch (error) {
         console.error('[WhatsApp Web] Error sending message:', error);
@@ -469,6 +530,9 @@ async function disconnectClient(userId) {
             await client.destroy();
             activeClients.delete(userId);
 
+            // Wait for process to fully exit
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
             // FORCE CLEANUP: Delete session data to ensure fresh QR on next connect
             const fs = require('fs');
             const path = require('path');
@@ -476,7 +540,11 @@ async function disconnectClient(userId) {
 
             if (fs.existsSync(sessionPath)) {
                 console.log(`[WhatsApp Web] Wiping session data for user ${userId}...`);
-                fs.rmSync(sessionPath, { recursive: true, force: true });
+                try {
+                    fs.rmSync(sessionPath, { recursive: true, force: true });
+                } catch (rmErr) {
+                    console.error('[WhatsApp Web] Error deleting session files (ignoring):', rmErr.message);
+                }
             }
 
             // Mark session as inactive

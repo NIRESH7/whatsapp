@@ -1,3 +1,4 @@
-2025/12/09-05:21:22.208 4710 Reusing MANIFEST C:\whatsapp\source_code\whatsapp_integration\whatsapp-sessions\session-user-1\Default\Service Worker\Database/MANIFEST-000001
-2025/12/09-05:21:22.209 4710 Recovering log #3
-2025/12/09-05:21:22.210 4710 Reusing old log C:\whatsapp\source_code\whatsapp_integration\whatsapp-sessions\session-user-1\Default\Service Worker\Database/000003.log 
+2025/12/09-21:45:03.816 5414 Creating DB C:\whatsapp\source_code\whatsapp_integration\whatsapp-sessions\session-user-1\Default\Service Worker\Database since it was missing.
+2025/12/09-21:45:03.836 5414 Reusing MANIFEST C:\whatsapp\source_code\whatsapp_integration\whatsapp-sessions\session-user-1\Default\Service Worker\Database/MANIFEST-000001
+2025/12/09-21:45:03.836 5414 Recovering log #3
+2025/12/09-21:45:03.853 5414 Reusing old log C:\whatsapp\source_code\whatsapp_integration\whatsapp-sessions\session-user-1\Default\Service Worker\Database/000003.log 
