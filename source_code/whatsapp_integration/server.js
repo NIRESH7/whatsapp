@@ -1120,36 +1120,81 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
 
 // GET Contact Details (Sync Name) - Helper to repair missing names
 app.get('/api/whatsapp-business/contacts/:phoneNumber', async (req, res) => {
-    const { phoneNumber } = req.params;
+    let { phoneNumber } = req.params;
     const userId = req.user?.id || 1;
 
     try {
+        // CRITICAL FIX: Extract phone number from JSON if passed as JSON string
+        if (phoneNumber.includes('{') || phoneNumber.includes('"user"')) {
+            try {
+                const decoded = decodeURIComponent(phoneNumber);
+                const parsed = JSON.parse(decoded);
+                phoneNumber = parsed.user || parsed._serialized?.split('@')[0] || phoneNumber;
+            } catch (e) {
+                // Try regex extraction if JSON parse fails
+                const match = phoneNumber.match(/"user":"(\d+)"/);
+                if (match) {
+                    phoneNumber = match[1];
+                } else {
+                    // Extract from _serialized format
+                    const serializedMatch = phoneNumber.match(/(\d+)@c\.us/);
+                    if (serializedMatch) phoneNumber = serializedMatch[1];
+                }
+            }
+        }
+
+        // Clean phone number - remove non-digits except @
+        const cleanNumber = phoneNumber.replace(/[^0-9@]/g, '');
+        const contactId = cleanNumber.includes('@') ? cleanNumber : `${cleanNumber}@c.us`;
+
         const client = whatsappWebService.getClient(userId);
         if (!client) return res.status(503).json({ error: 'Client not ready' });
 
-        const contactId = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@c.us`;
-        const contact = await client.getContactById(contactId);
-
+        // CRITICAL FIX: Use safer Puppeteer method instead of getContactById
         let name = null;
-        if (contact) {
-            name = contact.name || contact.pushname || contact.notifyName;
-            // Update DB if we found a name
-            if (name) {
-                const normalizedNumber = phoneNumber.replace(/\D/g, '');
-                await pool.query(
-                    `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
-                     VALUES ($1, $2, $3)
-                     ON CONFLICT (user_id, contact_number) DO UPDATE SET
-                     contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
-                    [userId, normalizedNumber, name]
-                );
+        try {
+            if (client.pupPage && !client.pupPage.isClosed()) {
+                name = await client.pupPage.evaluate((cid) => {
+                    try {
+                        if (!window.Store || !window.Store.Contact) return null;
+                        const contact = window.Store.Contact.get(cid);
+                        if (!contact) return null;
+                        return contact.name || contact.pushname || contact.notifyName || contact.shortName || contact.verifiedName || null;
+                    } catch (e) {
+                        return null;
+                    }
+                }, contactId);
+            }
+        } catch (puppeteerErr) {
+            console.warn('[API] Puppeteer contact fetch failed, trying getContactById:', puppeteerErr.message);
+            // Fallback to getContactById if Puppeteer fails
+            try {
+                const contact = await client.getContactById(contactId);
+                if (contact) {
+                    name = contact.name || contact.pushname || contact.notifyName;
+                }
+            } catch (contactErr) {
+                console.warn('[API] getContactById also failed:', contactErr.message);
             }
         }
-        res.json({ name: name || phoneNumber, number: phoneNumber });
+
+        // Update DB if we found a name
+        if (name) {
+            const normalizedNumber = cleanNumber.replace(/\D/g, '');
+            await pool.query(
+                `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
+                 VALUES ($1, $2, $3)
+                 ON CONFLICT (user_id, contact_number) DO UPDATE SET
+                 contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
+                [userId, normalizedNumber, name]
+            );
+        }
+
+        res.json({ name: name || cleanNumber, number: cleanNumber });
 
     } catch (error) {
         console.error('[API] Error fetching contact details:', error);
-        res.status(500).json({ error: 'Failed to fetch contact' });
+        res.status(500).json({ error: 'Failed to fetch contact: ' + error.message });
     }
 });
 
@@ -1188,29 +1233,36 @@ app.get('/api/whatsapp-business/messages', async (req, res) => {
 
 // SYNC HISTORY Endpoint - Force backfill for a specific chat
 app.post('/messages/sync', async (req, res) => {
-    const { phoneNumber } = req.body;
+    let { phoneNumber } = req.body;
     const userId = req.user?.id || 1;
 
     if (!phoneNumber) return res.status(400).json({ error: 'Phone number required' });
 
     try {
+        // CRITICAL FIX: Extract phone number from JSON if passed as JSON
+        if (typeof phoneNumber === 'object' || (typeof phoneNumber === 'string' && phoneNumber.includes('{'))) {
+            try {
+                const parsed = typeof phoneNumber === 'string' ? JSON.parse(phoneNumber) : phoneNumber;
+                phoneNumber = parsed.user || parsed._serialized?.split('@')[0] || phoneNumber;
+            } catch (e) {
+                const match = String(phoneNumber).match(/"user":"(\d+)"/);
+                if (match) phoneNumber = match[1];
+                else phoneNumber = String(phoneNumber).split('@')[0];
+            }
+        }
+
         const client = whatsappWebService.getClient(userId);
         if (!client) return res.status(503).json({ error: 'Client not ready' });
 
         console.log(`[API] Force syncing history for ${phoneNumber}...`);
 
-        // Call service function to sync
-        // We need to expose this from service or use existing helpers
-        // Since we exposed syncRecentChats, let's look for a single sync function or use manualFetchMessages logic
-        // Actually manualFetchMessages doesn't save? We need a saving logic.
-        // Let's rely on the service to expose a new helper or reuse code.
-        // I will add syncSingleChat to service next.
+        // Use syncSingleChat function - it handles everything
         await whatsappWebService.syncSingleChat(client, userId, phoneNumber);
 
-        res.json({ success: true, message: 'Sync started' });
+        res.json({ success: true, message: `Sync completed for ${phoneNumber}` });
     } catch (error) {
         console.error('[API] Sync error:', error);
-        res.status(500).json({ error: 'Sync failed' });
+        res.status(500).json({ error: 'Sync failed: ' + error.message });
     }
 });
 

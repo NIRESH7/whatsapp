@@ -27,35 +27,35 @@ interface Message {
 }
 
 // Helper to clean JSON names - CRITICAL FIX
+// IMPORTANT: Only reject CLEARLY invalid data (JSON objects, pure phone numbers)
+// Trust real names even if they contain some digits
 const cleanContactName = (raw: string | undefined | null) => {
-    if (!raw) return 'Unknown Contact';
+    if (!raw || !raw.trim()) return 'Unknown Contact';
 
-    // Check if it's a JSON string
-    if (raw.trim().startsWith('{') || raw.includes('"server"')) {
-        try {
-            // It might be a serialized ID like {"server":"c.us","user":"..."} 
-            // We should try to EXTRACT the user number from it if possible
-            let parsed: any = {};
-            try {
-                parsed = JSON.parse(raw);
-            } catch (e) {
-                // extract user id via regex if json parse fails
-                const match = raw.match(/"user":"(\d+)"/);
-                if (match) return match[1];
-            }
+    const trimmed = raw.trim();
 
-            if (parsed.user) return parsed.user;
-            return 'WhatsApp Contact'; // Fallback if data is too messy
-        } catch (e) {
-            return 'WhatsApp Contact';
-        }
+    // ONLY reject JSON objects - these are clearly invalid
+    if (trimmed.startsWith('{') || trimmed.includes('"server"') || trimmed.includes('"user"')) {
+        return 'Unknown Contact';
     }
-    // Check if it looks like a serialized complex ID string (e.g. 123@c.us)
-    if (raw.includes('@')) {
-        return raw.split('@')[0];
+    
+    // ONLY reject if it's PURELY a phone number (all digits, spaces, dashes, parentheses, +)
+    // AND has no letters or other characters that would indicate it's a name
+    const digitsOnly = trimmed.replace(/\D/g, '');
+    const hasLetters = /[a-zA-Z]/.test(trimmed);
+    
+    // If it's purely numeric (no letters) AND looks like a phone number (10+ digits), reject it
+    if (!hasLetters && digitsOnly.length >= 10 && /^\+?[\d\s\-\(\)]+$/.test(trimmed)) {
+        return 'Unknown Contact';
+    }
+    
+    // Reject serialized IDs (e.g. 123@c.us)
+    if (trimmed.includes('@') && /^\d+@c\.us$/.test(trimmed)) {
+        return 'Unknown Contact';
     }
 
-    return raw;
+    // Otherwise, TRUST IT - it's a real name (even if it has some digits in it)
+    return trimmed;
 };
 
 // Memoized Contact Item Component to prevent unnecessary re-renders
@@ -86,7 +86,22 @@ const ContactItem = React.memo<{
                 <div className="flex-1 min-w-0">
                     <div className={`font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'
                         }`}>
-                        {cleanContactName(contact.name || contact.number)}
+                        {/* CRITICAL: Show the name from API - trust the data */}
+                        {(() => {
+                            // Use contact.name if it exists and is valid
+                            if (contact.name && contact.name.trim() && contact.name !== contact.number) {
+                                const cleaned = cleanContactName(contact.name);
+                                // Only show "Unknown Contact" if cleanContactName rejected it
+                                // Otherwise show the actual name
+                                return cleaned === 'Unknown Contact' ? contact.name : cleaned;
+                            }
+                            // If name is same as number or missing, check if number is actually a name
+                            if (contact.name && contact.name.trim()) {
+                                return cleanContactName(contact.name);
+                            }
+                            // Last resort - show unknown
+                            return 'Unknown Contact';
+                        })()}
                     </div>
                     {contact.lastMessageText && (
                         <div className={`text-sm truncate ${isDark ? 'text-gray-400' : 'text-gray-500'
@@ -94,8 +109,8 @@ const ContactItem = React.memo<{
                             {contact.lastMessageText}
                         </div>
                     )}
-                    {/* Show phone number as subtitle if name is different */}
-                    {contact.name && contact.name !== contact.number && (
+                    {/* Show phone number as subtitle ONLY if we have a valid name that's different from number */}
+                    {contact.name && contact.name.trim() && contact.name !== contact.number && contact.number && (
                         <div className={`text-xs truncate ${isDark ? 'text-gray-500' : 'text-gray-400'
                             }`}>
                             {contact.number}
@@ -279,11 +294,11 @@ const Chat: React.FC = () => {
             const [contactsResponse, messagesResponse] = await Promise.all([
                 axios.get('http://localhost:3000/api/whatsapp-business/conversations', {
                     withCredentials: true,
-                    timeout: 5000 // Fast timeout
+                    timeout: 60000 // No time limit - user wants complete data
                 }),
                 axios.get('http://localhost:3000/api/whatsapp-business/messages', {
                     withCredentials: true,
-                    timeout: 5000 // Fast timeout
+                    timeout: 60000 // No time limit - user wants complete data
                 })
             ]);
 
@@ -340,14 +355,13 @@ const Chat: React.FC = () => {
                 )
                 : null;
 
-            // IMPROVED: Ensure name is properly displayed
-            // Use name if it exists and is different from number, otherwise use number
-            const displayName = (contact.name &&
-                contact.name.trim() !== '' &&
-                contact.name !== contact.number &&
-                !contact.number.includes(contact.name.replace(/\D/g, '')))
-                ? contact.name
-                : contact.number;
+            // CRITICAL FIX: Trust the API - if name exists, use it
+            // Only fallback to number if name is truly missing or empty
+            let displayName = contact.name;
+            if (!displayName || displayName.trim() === '' || displayName.trim() === contact.number) {
+                // Only use number as fallback if name is truly missing
+                displayName = contact.number;
+            }
 
             return {
                 number: contact.number,
@@ -418,17 +432,36 @@ const Chat: React.FC = () => {
             return;
         }
 
+        // Extract phone number properly (handle JSON objects)
+        let phoneNumber = activeContact.number;
+        if (typeof phoneNumber === 'object' || (typeof phoneNumber === 'string' && phoneNumber.includes('{'))) {
+            try {
+                const parsed = typeof phoneNumber === 'string' ? JSON.parse(phoneNumber) : phoneNumber;
+                phoneNumber = parsed.user || parsed._serialized?.split('@')[0] || phoneNumber;
+            } catch (e) {
+                // If parsing fails, try to extract from string
+                const match = String(phoneNumber).match(/"user":"(\d+)"/);
+                if (match) phoneNumber = match[1];
+                else phoneNumber = String(phoneNumber).split('@')[0];
+            }
+        }
+
         // Lazy-Repair Name: If name is just number, try to fetch real name
-        if (activeContact.name === activeContact.number || cleanContactName(activeContact.name) === activeContact.number) {
-            console.log('Attempting to resolve contact name for', activeContact.number);
-            axios.get(`http://localhost:3000/api/whatsapp-business/contacts/${activeContact.number}`)
+        const cleanName = cleanContactName(activeContact.name);
+        if (cleanName === phoneNumber || activeContact.name === phoneNumber) {
+            console.log('Attempting to resolve contact name for', phoneNumber);
+            axios.get(`http://localhost:3000/api/whatsapp-business/contacts/${encodeURIComponent(phoneNumber)}`, {
+                timeout: 30000 // Increased timeout for contact resolution
+            })
                 .then(res => {
-                    if (res.data.name && res.data.name !== activeContact.number) {
+                    if (res.data.name && res.data.name !== phoneNumber) {
                         console.log('Resolved name:', res.data.name);
                         // Update list
-                        setContacts(prev => prev.map(c =>
-                            c.number === activeContact.number ? { ...c, name: res.data.name } : c
-                        ));
+                        setContacts(prev => prev.map(c => {
+                            if (!c.number) return c;
+                            const cNum = typeof c.number === 'object' ? (c.number?.user || c.number?._serialized?.split('@')[0]) : c.number;
+                            return cNum === phoneNumber ? { ...c, name: res.data.name } : c;
+                        }));
                         // Update active
                         setActiveContact(prev => prev ? { ...prev, name: res.data.name } : null);
                     }
@@ -436,21 +469,35 @@ const Chat: React.FC = () => {
                 .catch(err => console.warn('Name resolution failed', err));
         }
 
-        fetchMessages(activeContact.number);
+        fetchMessages(phoneNumber);
     }, [activeContact?.number]);
 
     const fetchMessages = async (contactNumber: string) => {
         setMessagesLoading(true);
         try {
+            // Extract phone number properly (handle JSON objects)
+            let phoneNumber = contactNumber;
+            if (typeof phoneNumber === 'object' || (typeof phoneNumber === 'string' && phoneNumber.includes('{'))) {
+                try {
+                    const parsed = typeof phoneNumber === 'string' ? JSON.parse(phoneNumber) : phoneNumber;
+                    phoneNumber = parsed.user || parsed._serialized?.split('@')[0] || phoneNumber;
+                } catch (e) {
+                    const match = String(phoneNumber).match(/"user":"(\d+)"/);
+                    if (match) phoneNumber = match[1];
+                    else phoneNumber = String(phoneNumber).split('@')[0];
+                }
+            }
+
             const response = await axios.get(
-                `http://localhost:3000/api/whatsapp-business/messages/${contactNumber}`
+                `http://localhost:3000/api/whatsapp-business/messages/${encodeURIComponent(phoneNumber)}`,
+                { timeout: 60000 } // No time limit - user wants complete data
             );
             setMessages(response.data);
 
             // Mark read
-            if (response.data.some((msg: Message) => !msg.read && msg.sender === contactNumber)) {
+            if (response.data.some((msg: Message) => !msg.read && msg.sender === phoneNumber)) {
                 await axios.post('http://localhost:3000/messages/read', {
-                    phoneNumber: contactNumber
+                    phoneNumber: phoneNumber
                 });
                 refreshContacts(); // Update unread count UI
             }
@@ -458,12 +505,18 @@ const Chat: React.FC = () => {
             // AUTO-SYNC HISTORY if too few messages (e.g. just started or incomplete)
             if (response.data.length < 10) {
                 console.log('History sparse, triggering auto-sync...');
-                // Fire and forget sync, then refresh
-                axios.post('http://localhost:3000/messages/sync', { phoneNumber: contactNumber })
+                // Fire and forget sync, then refresh - use extracted phoneNumber
+                axios.post('http://localhost:3000/messages/sync', { 
+                    phoneNumber: phoneNumber 
+                }, { 
+                    timeout: 300000 // 5 minutes timeout for sync - no time limit
+                })
                     .then(() => {
                         // Refresh messages again after 2 seconds to pick up new history
                         setTimeout(() => {
-                            axios.get(`http://localhost:3000/api/whatsapp-business/messages/${contactNumber}`)
+                            axios.get(`http://localhost:3000/api/whatsapp-business/messages/${encodeURIComponent(phoneNumber)}`, {
+                                timeout: 60000
+                            })
                                 .then(res => setMessages(res.data))
                                 .catch(err => console.log('Refetch failed', err));
                         }, 2000);
@@ -633,7 +686,7 @@ const Chat: React.FC = () => {
                     ) : (
                         filteredContacts.map((contact) => (
                             <ContactItem
-                                key={contact.number}
+                                key={contact.name}
                                 contact={contact}
                                 isActive={activeContact?.number === contact.number}
                                 isDark={isDark}

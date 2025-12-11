@@ -17,6 +17,8 @@ export default function WhatsAppConnect() {
     const socketRef = useRef<Socket | null>(null);
     const navigate = useNavigate();
     const [showFetchingModal, setShowFetchingModal] = useState(false);
+    const [fetchedContacts, setFetchedContacts] = useState<Array<{name: string, number: string, index: number}>>([]);
+    const [totalContactsCount, setTotalContactsCount] = useState(0);
 
     // Auto-init ref to prevent double firing
     const hasAutoInitialized = useRef(false);
@@ -162,7 +164,28 @@ export default function WhatsAppConnect() {
             }
         });
 
-        // Listen for sync progress - FAST UPDATES
+        // Listen for contact-updated - Progressive contact display
+        socket.on('contact-updated', (data: any) => {
+            console.log('[WhatsApp Connect] Contact updated:', data);
+            setFetchedContacts(prev => {
+                const exists = prev.find(c => c.number === data.contactNumber);
+                if (exists) {
+                    return prev.map(c => c.number === data.contactNumber ? {
+                        name: data.contactName,
+                        number: data.contactNumber,
+                        index: data.contactIndex
+                    } : c);
+                } else {
+                    return [...prev, {
+                        name: data.contactName,
+                        number: data.contactNumber,
+                        index: data.contactIndex
+                    }].sort((a, b) => a.index - b.index);
+                }
+            });
+        });
+
+        // Listen for sync progress - FAST UPDATES with progressive display
         socket.on('sync-progress', (progress: any) => {
             setSyncProgress(progress);
             // Keep modal open during sync
@@ -170,15 +193,31 @@ export default function WhatsAppConnect() {
                 setShowFetchingModal(true);
             }
             
+            // Reset contacts list when starting new sync
+            if (progress.stage === 'starting') {
+                setFetchedContacts([]);
+            }
+            
+            // Update total contacts count
+            if (progress.totalContacts || progress.total) {
+                setTotalContactsCount(progress.totalContacts || progress.total);
+            }
+            
             const totalContacts = progress.totalContacts || progress.total || 0;
             const contactsFetched = progress.contactsFetched || progress.current || 0;
             const messagesFetched = progress.messages || 0;
             
-            if (progress.total > 0) {
+            // Show progressive message if available
+            if (progress.message) {
+                setStatus(progress.message);
+            } else if (progress.currentContact) {
+                // Show current contact being processed
+                setStatus(`🔄 ${progress.current}/${totalContacts} done: Fetching ${progress.currentContact}... ${messagesFetched} messages so far`);
+            } else if (progress.total > 0) {
                 const percent = Math.round((progress.current / progress.total) * 100);
                 setStatus(`🔄 Fetching data... ${contactsFetched}/${totalContacts} contacts, ${messagesFetched} messages (${percent}%) - Please wait, this may take up to 2 minutes...`);
             } else if (totalContacts > 0) {
-                setStatus(`🔄 Preparing to fetch ${totalContacts} contacts from your mobile... This may take up to 2 minutes, please wait...`);
+                setStatus(`🔄 Found ${totalContacts} total contacts. Starting to fetch names and history... This may take up to 2 minutes, please wait...`);
             } else {
                 setStatus('🔄 Preparing to fetch your data... This may take up to 2 minutes, please wait...');
             }
@@ -195,6 +234,7 @@ export default function WhatsAppConnect() {
             
             // Close fetching modal
             setShowFetchingModal(false);
+            // Keep contacts list visible for a moment before redirect
             
             // Show completion message
             if (data.message) {
@@ -450,6 +490,41 @@ export default function WhatsAppConnect() {
                     </div>
                 )}
 
+                {/* Progressive Contacts List */}
+                {fetchedContacts.length > 0 && (
+                    <div className="contacts-list" style={{
+                        marginTop: '20px',
+                        maxHeight: '300px',
+                        overflowY: 'auto',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '8px',
+                        padding: '10px',
+                        backgroundColor: '#f9fafb'
+                    }}>
+                        <h4 style={{ marginBottom: '10px', fontSize: '14px', fontWeight: 'bold' }}>
+                            Contacts Fetched ({fetchedContacts.length}{totalContactsCount > 0 ? ` / ${totalContactsCount}` : ''}):
+                        </h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                            {fetchedContacts.map((contact, idx) => (
+                                <div key={contact.number} style={{
+                                    padding: '8px',
+                                    backgroundColor: 'white',
+                                    borderRadius: '4px',
+                                    fontSize: '12px',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center'
+                                }}>
+                                    <span style={{ fontWeight: '500' }}>
+                                        {contact.index}. {contact.name || contact.number}
+                                    </span>
+                                    <span style={{ color: '#10b981', fontSize: '10px' }}>✓ Done</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
                 {/* "Messages are fetching..." Modal */}
                 {showFetchingModal && (
                     <div className="fetching-modal-overlay">
@@ -474,6 +549,46 @@ export default function WhatsAppConnect() {
                                         {syncProgress.contactsFetched || syncProgress.current || 0} / {syncProgress.totalContacts || syncProgress.total || 0} contacts
                                         {syncProgress.messages > 0 && ` • ${syncProgress.messages} messages`}
                                     </p>
+                                    {syncProgress.currentContact && (
+                                        <p style={{ fontSize: '12px', color: '#667781', marginTop: '5px' }}>
+                                            Currently: {syncProgress.currentContact}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+                            
+                            {/* Progressive Contacts List in Modal */}
+                            {fetchedContacts.length > 0 && (
+                                <div style={{
+                                    marginTop: '20px',
+                                    maxHeight: '200px',
+                                    overflowY: 'auto',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    padding: '10px',
+                                    backgroundColor: '#f9fafb'
+                                }}>
+                                    <h4 style={{ marginBottom: '10px', fontSize: '13px', fontWeight: 'bold', color: '#111b21' }}>
+                                        Contacts Fetched ({fetchedContacts.length}{totalContactsCount > 0 ? ` / ${totalContactsCount}` : ''}):
+                                    </h4>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                                        {fetchedContacts.map((contact) => (
+                                            <div key={contact.number} style={{
+                                                padding: '6px 8px',
+                                                backgroundColor: 'white',
+                                                borderRadius: '4px',
+                                                fontSize: '11px',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}>
+                                                <span style={{ fontWeight: '500', color: '#111b21' }}>
+                                                    {contact.index}. {contact.name || contact.number}
+                                                </span>
+                                                <span style={{ color: '#10b981', fontSize: '10px', fontWeight: 'bold' }}>✓ Done</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>
