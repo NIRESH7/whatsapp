@@ -26,6 +26,38 @@ interface Message {
     read: boolean;
 }
 
+// Helper to clean JSON names - CRITICAL FIX
+const cleanContactName = (raw: string | undefined | null) => {
+    if (!raw) return 'Unknown Contact';
+
+    // Check if it's a JSON string
+    if (raw.trim().startsWith('{') || raw.includes('"server"')) {
+        try {
+            // It might be a serialized ID like {"server":"c.us","user":"..."} 
+            // We should try to EXTRACT the user number from it if possible
+            let parsed: any = {};
+            try {
+                parsed = JSON.parse(raw);
+            } catch (e) {
+                // extract user id via regex if json parse fails
+                const match = raw.match(/"user":"(\d+)"/);
+                if (match) return match[1];
+            }
+
+            if (parsed.user) return parsed.user;
+            return 'WhatsApp Contact'; // Fallback if data is too messy
+        } catch (e) {
+            return 'WhatsApp Contact';
+        }
+    }
+    // Check if it looks like a serialized complex ID string (e.g. 123@c.us)
+    if (raw.includes('@')) {
+        return raw.split('@')[0];
+    }
+
+    return raw;
+};
+
 // Memoized Contact Item Component to prevent unnecessary re-renders
 const ContactItem = React.memo<{
     contact: Contact;
@@ -54,7 +86,7 @@ const ContactItem = React.memo<{
                 <div className="flex-1 min-w-0">
                     <div className={`font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'
                         }`}>
-                        {contact.name || contact.number}
+                        {cleanContactName(contact.name || contact.number)}
                     </div>
                     {contact.lastMessageText && (
                         <div className={`text-sm truncate ${isDark ? 'text-gray-400' : 'text-gray-500'
@@ -165,7 +197,7 @@ const Chat: React.FC = () => {
                         time: new Date(data.timestamp * 1000).toLocaleTimeString(),
                         timestamp: new Date(data.timestamp * 1000).toISOString(),
                         type: data.fromMe ? 'sent' : 'received',
-                        read: true // Assuming read if we see it live? or backend handles
+                        read: true // Client-side assumption for display
                     };
 
                     setMessages(prev => {
@@ -173,6 +205,13 @@ const Chat: React.FC = () => {
                         if (prev.some(m => m.id === msg.id)) return prev;
                         return [...prev, msg];
                     });
+
+                    // CRITICAL: If chat is open, mark as read on server immediately
+                    if (isForActiveChat && !data.fromMe) {
+                        axios.post('http://localhost:3000/messages/read', {
+                            phoneNumber: activeContact.number
+                        }).catch(err => console.error('[Chat] Failed to mark new message read:', err));
+                    }
                 }
             }
 
@@ -378,6 +417,25 @@ const Chat: React.FC = () => {
             setMessages([]);
             return;
         }
+
+        // Lazy-Repair Name: If name is just number, try to fetch real name
+        if (activeContact.name === activeContact.number || cleanContactName(activeContact.name) === activeContact.number) {
+            console.log('Attempting to resolve contact name for', activeContact.number);
+            axios.get(`http://localhost:3000/api/whatsapp-business/contacts/${activeContact.number}`)
+                .then(res => {
+                    if (res.data.name && res.data.name !== activeContact.number) {
+                        console.log('Resolved name:', res.data.name);
+                        // Update list
+                        setContacts(prev => prev.map(c =>
+                            c.number === activeContact.number ? { ...c, name: res.data.name } : c
+                        ));
+                        // Update active
+                        setActiveContact(prev => prev ? { ...prev, name: res.data.name } : null);
+                    }
+                })
+                .catch(err => console.warn('Name resolution failed', err));
+        }
+
         fetchMessages(activeContact.number);
     }, [activeContact?.number]);
 
@@ -395,6 +453,22 @@ const Chat: React.FC = () => {
                     phoneNumber: contactNumber
                 });
                 refreshContacts(); // Update unread count UI
+            }
+
+            // AUTO-SYNC HISTORY if too few messages (e.g. just started or incomplete)
+            if (response.data.length < 10) {
+                console.log('History sparse, triggering auto-sync...');
+                // Fire and forget sync, then refresh
+                axios.post('http://localhost:3000/messages/sync', { phoneNumber: contactNumber })
+                    .then(() => {
+                        // Refresh messages again after 2 seconds to pick up new history
+                        setTimeout(() => {
+                            axios.get(`http://localhost:3000/api/whatsapp-business/messages/${contactNumber}`)
+                                .then(res => setMessages(res.data))
+                                .catch(err => console.log('Refetch failed', err));
+                        }, 2000);
+                    })
+                    .catch(err => console.log('Auto-sync trigger failed (might be offline)', err));
             }
         } catch (error) {
             console.error('Error fetching messages:', error);
@@ -470,8 +544,10 @@ const Chat: React.FC = () => {
     }, [contacts, searchQuery]);
 
     const formatTime = useCallback((timestamp?: string) => {
-        if (!timestamp) return '';
+        if (!timestamp || timestamp === 'Invalid Date') return '';
         const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return ''; // Handle invalid dates
+
         const now = new Date();
         const diff = now.getTime() - date.getTime();
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
@@ -582,7 +658,7 @@ const Chat: React.FC = () => {
                                 </div>
                                 <div>
                                     <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                        {activeContact.name || activeContact.number}
+                                        {cleanContactName(activeContact.name || activeContact.number)}
                                     </h3>
                                     {/* Always show phone number as subtitle if name exists */}
                                     {activeContact.name && activeContact.name !== activeContact.number && (
@@ -617,9 +693,15 @@ const Chat: React.FC = () => {
                                         className={`flex flex-col ${message.type === 'sent' ? 'items-end' : 'items-start'}`}
                                     >
                                         {/* Show sender name for received messages */}
+                                        {/* Show sender name for received messages */}
                                         {message.type === 'received' && message.sender && message.sender !== 'Me' && (
                                             <div className={`text-xs mb-1 px-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                {message.sender}
+                                                {(() => {
+                                                    const cleanSender = cleanContactName(message.sender);
+                                                    // Try to find name in contacts list first
+                                                    const knownContact = contacts.find(c => c.number === cleanSender || c.number === message.sender);
+                                                    return knownContact ? (knownContact.name || cleanSender) : cleanSender;
+                                                })()}
                                             </div>
                                         )}
                                         <div

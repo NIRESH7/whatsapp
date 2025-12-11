@@ -346,6 +346,10 @@ async function initializeClient(userId, io) {
                 }
 
                 io.to(`user-${userId}`).emit('ready', { phoneNumber, dataCleared: existingPhoneNumber && existingPhoneNumber !== phoneNumber });
+
+                // Backfill history for top chats
+                console.log('[WhatsApp Web] 🔄 Starting message history backfill...');
+                syncRecentChats(client, userId).catch(err => console.error('[WhatsApp Web] Backfill error:', err));
             } catch (error) {
                 console.error('[WhatsApp Web] Error in ready event:', error);
             }
@@ -931,14 +935,22 @@ async function syncChatHistory(userId, io) {
                             finalContactName = chat.name || chat.pushname || null;
                         }
 
+
                         // Clean up the name (remove extra spaces, etc.)
                         if (finalContactName) {
                             finalContactName = finalContactName.trim();
-                            // Don't save if name is just the phone number
-                            const nameDigits = finalContactName.replace(/\D/g, '');
-                            const numberDigits = contactNumber.replace(/\D/g, '');
-                            if (finalContactName === contactNumber || nameDigits === numberDigits) {
-                                finalContactName = null;
+
+                            // IMPORTANT: Even if name is similar to number, SAVE IT if it's different in any way
+                            // The previous logic was too aggressive in nulling names
+
+                            // Only nullify if identical
+                            if (finalContactName === contactNumber) {
+                                // Double check if we can get a better name from pushname
+                                if (chat.pushname && chat.pushname !== contactNumber) {
+                                    finalContactName = chat.pushname;
+                                } else {
+                                    // finalContactName = null; // KEEP IT! Better to have a formatted number than nothing if that's all we have
+                                }
                             }
                         }
 
@@ -1188,17 +1200,22 @@ async function saveMessage(userId, message, client = null) {
 
         await pool.query(
             `INSERT INTO whatsapp_web_messages 
-             (user_id, message_id, chat_id, sender, message_text, message_type, is_from_me, timestamp)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+             (user_id, message_id, chat_id, sender, message_text, message_type, is_from_me, is_read, timestamp)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
              ON CONFLICT (message_id) DO NOTHING`,
             [
                 userId,
                 message.id._serialized,
                 message.id.remote, // CORRECT: Use remote ID as chat_id (works for both sent/received)
-                message.author || message.from,
+                // Sanitize sender for DB
+                // Ensure we don't save JSON objects or weird structures
+                typeof (message.author || message.from) === 'object' ?
+                    ((message.author || message.from)._serialized || (message.author || message.from).user) :
+                    (message.author || message.from),
                 message.body || '',
                 message.type,
                 message.fromMe,
+                message.fromMe, // is_read (true if from me, false if from others)
                 new Date(message.timestamp * 1000)
             ]
         );
@@ -1217,20 +1234,25 @@ async function saveMessage(userId, message, client = null) {
                 // Try to get from contact object if available
                 if (!cleanName && client) {
                     try {
-                        const contactId = message.from || message.author;
+                        let contactId = message.from || message.author;
+                        // Handle if contactId is object (it shouldn't be here but safe check)
+                        if (typeof contactId === 'object') {
+                            contactId = contactId._serialized || contactId.user;
+                        }
+
                         if (contactId) {
                             const contactObj = await client.getContactById(contactId);
                             if (contactObj) {
                                 cleanName = contactObj.name ||
                                     contactObj.pushname ||
-                                    contactObj.notifyName ||
-                                    contactObj.shortName ||
                                     contactObj.verifiedName ||
-                                    cleanName;
+                                    contactObj.shortName;
+
+                                // console.log(`[WhatsApp Web] Fetched contact name for ${contactId}: ${cleanName}`);
                             }
                         }
                     } catch (err) {
-                        // Ignore
+                        console.warn('[WhatsApp Web] Could not fetch contact details:', err.message);
                     }
                 }
 
@@ -1267,6 +1289,36 @@ async function saveMessage(userId, message, client = null) {
                 // Ignore contact update errors
             }
         }
+
+        // CRITICAL: Ensure chat exists in whatsapp_chats table for Chat List
+        try {
+            const chatId = message.id.remote;
+            const chatContactNumber = message.fromMe ? message.to : (message.author || message.from);
+
+            // Upsert chat with latest timestamp
+            await pool.query(
+                `INSERT INTO whatsapp_chats (user_id, chat_id, contact_number, last_message_time, unread_count)
+                 VALUES ($1, $2, $3, $4, 
+                    CASE WHEN $5 = true THEN 0 ELSE 1 END
+                 )
+                 ON CONFLICT (user_id, chat_id) DO UPDATE SET
+                 last_message_time = $4,
+                 unread_count = CASE 
+                    WHEN $5 = true THEN 0 
+                    ELSE whatsapp_chats.unread_count + 1 
+                 END`,
+                [
+                    userId,
+                    chatId,
+                    chatContactNumber,
+                    new Date(message.timestamp * 1000),
+                    message.fromMe
+                ]
+            );
+        } catch (chatError) {
+            console.error('[WhatsApp Web] Error updating chat list:', chatError);
+        }
+
     } catch (error) {
         console.error('[WhatsApp Web] Error saving message:', error);
     }
@@ -1441,17 +1493,7 @@ async function disconnectClient(userId, io = null, clearData = true) {
     }
 }
 
-module.exports = {
-    initializeClient,
-    syncChatHistory,
-    getClient,
-    isClientReady,
-    disconnectClient,
-    sendMessage,
-    activeClients,
-    manualGetChats,
-    manualFetchMessages
-};
+
 
 /**
  * Manually fetch chats using Puppeteer evaluation
@@ -1580,3 +1622,97 @@ async function manualFetchMessages(client, chatId, limit = 50) {
         }).filter(m => m !== null);
     }, chatId, limit);
 }
+
+/**
+ * Backfill messages for recent chats to ensure history is populated
+ */
+async function syncRecentChats(client, userId) {
+    try {
+        console.log('[WhatsApp Web] Fetching chats for backfill...');
+        const chats = await client.getChats(); // Start with standard fetch
+
+        // Take top 15 active chats
+        const recentChats = chats.slice(0, 15);
+        console.log(`[WhatsApp Web] Backfilling history for ${recentChats.length} recent chats...`);
+
+        for (const chat of recentChats) {
+            try {
+                // Fetch last 50 messages per chat
+                const messages = await chat.fetchMessages({ limit: 50 });
+                console.log(`[WhatsApp Web] Syncing ${messages.length} msgs for ${chat.name || chat.id.user}`);
+
+                for (const msg of messages) {
+                    await saveMessage(msg, userId, client);
+                }
+
+                // Small delay to prevent rate limits
+                await new Promise(resolve => setTimeout(resolve, 500));
+            } catch (chatErr) {
+                console.warn(`[WhatsApp Web] Failed to sync chat ${chat.id._serialized}:`, chatErr.message);
+            }
+        }
+        console.log('[WhatsApp Web] ✅ History backfill complete');
+    } catch (error) {
+        console.error('[WhatsApp Web] Error in syncRecentChats:', error);
+    }
+}
+
+/**
+ * Sync messages for a specific chat (On-Demand)
+ */
+async function syncSingleChat(client, userId, contactNumber) {
+    try {
+        // Normalize ID
+        let chatId = contactNumber.includes('@') ? contactNumber : `${contactNumber}@c.us`;
+
+        // Try getting chat directly
+        let chat = await client.getChatById(chatId);
+
+        // If not found, iterate (slower but safer)
+        if (!chat) {
+            const chats = await client.getChats();
+            chat = chats.find(c => c.id.user === contactNumber || c.id._serialized === contactNumber);
+        }
+
+        if (chat) {
+            console.log(`[WhatsApp Web] Fetching history for ${chat.name || chatId}...`);
+            const messages = await chat.fetchMessages({ limit: 100 }); // Fetch 100 messages
+
+            let count = 0;
+            for (const msg of messages) {
+                await saveMessage(msg, userId, client);
+                count++;
+            }
+            console.log(`[WhatsApp Web] Backfilled ${count} messages for ${chatId}`);
+            return count;
+        } else {
+            console.warn(`[WhatsApp Web] Chat ${chatId} not found for sync`);
+        }
+    } catch (err) {
+        console.error(`[WhatsApp Web] Error syncing ${contactNumber}:`, err);
+        throw err;
+    }
+}
+
+/**
+ * Get QR code for a user
+ */
+const getQrCode = (userId) => {
+    return userQrCodes.get(userId);
+};
+
+module.exports = {
+    initializeClient,
+    getClient,
+    isClientReady,
+    disconnectClient,
+    sendMessage,
+    activeClients,
+    getQrCode,
+
+    manualFetchChats: manualGetChats,
+    manualFetchMessages,
+    syncRecentChats,
+    syncSingleChat,
+    syncChatHistory
+};

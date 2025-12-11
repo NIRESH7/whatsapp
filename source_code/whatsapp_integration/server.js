@@ -204,6 +204,16 @@ app.post('/messages/read', (req, res) => {
         }
     });
 
+    // Also update database for WhatsApp Web messages
+    pool.query(
+        'UPDATE whatsapp_web_messages SET is_read = true WHERE user_id = $1 AND sender LIKE $2',
+        [req.user?.id || 1, `%${phoneNumber}%`]
+    ).then(result => {
+        console.log(`Updated ${result.rowCount} messages in DB as read for ${phoneNumber}`);
+    }).catch(err => {
+        console.error('Error updating DB read status:', err);
+    });
+
     console.log(`Marked ${updatedCount} messages as read for ${phoneNumber}`);
     res.json({ success: true, updatedCount });
 });
@@ -565,10 +575,20 @@ pool.query(`
         message_type VARCHAR(20),
         media_url TEXT,
         is_from_me BOOLEAN DEFAULT false,
+        is_read BOOLEAN DEFAULT false,
         timestamp TIMESTAMP,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-`).then(() => console.log('WhatsApp web messages table ready'))
+`).then(async () => {
+    console.log('WhatsApp web messages table ready');
+    // Schema Migration: Add is_read if not exists
+    try {
+        await pool.query('ALTER TABLE whatsapp_web_messages ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT true');
+        console.log('Schema migration: Added is_read column to whatsapp_web_messages');
+    } catch (e) {
+        console.log('Schema migration error (ignored):', e.message);
+    }
+})
     .catch(err => console.error('DB Error (WhatsApp Web Messages):', err));
 
 // Serialize/Deserialize User
@@ -800,17 +820,17 @@ app.get('/api/current_user', (req, res) => {
 
 app.get('/api/logout', async (req, res) => {
     const userId = req.user?.id || 1; // Get user ID before logout
-    
+
     req.logout(async (err) => {
         if (err) {
             return res.status(500).json({ error: 'Logout failed' });
         }
-        
+
         // CRITICAL: Clear all WhatsApp data on logout
         try {
             console.log(`[API] 🗑️ Clearing WhatsApp data for user ${userId} on logout...`);
             await whatsappWebService.disconnectClient(userId, io, true); // clearData = true
-            
+
             // Also clear session files
             const fs = require('fs');
             const path = require('path');
@@ -837,13 +857,13 @@ app.get('/api/logout', async (req, res) => {
                     console.warn(`[API] ⚠️ Could not delete session files:`, rmErr.message);
                 }
             }
-            
+
             console.log(`[API] ✅ WhatsApp data cleared for user ${userId} on logout`);
         } catch (clearError) {
             console.error('[API] Error clearing WhatsApp data on logout:', clearError);
             // Continue with logout even if clearing fails
         }
-        
+
         res.json({ success: true, message: 'Logged out successfully. WhatsApp data cleared.' });
     });
 });
@@ -931,12 +951,12 @@ app.post('/api/whatsapp-web/sync', async (req, res) => {
 
     try {
         console.log(`[API] ⚡ Starting sync for user ${userId} (user is okay with waiting up to 2 minutes)...`);
-        
+
         // CRITICAL: Wait 10 seconds after client ready before starting sync
         // This gives WhatsApp Web time to fully load all chats
         console.log(`[API] Waiting 10 seconds for WhatsApp Web to fully load before starting sync...`);
         await new Promise(resolve => setTimeout(resolve, 10000));
-        
+
         // Start sync in background (non-blocking)
         whatsappWebService.syncChatHistory(userId, io).catch(err => {
             console.error('[API] Sync error:', err);
@@ -1012,7 +1032,7 @@ app.post('/api/whatsapp-web/disconnect', async (req, res) => {
     try {
         console.log(`[API] Disconnecting WhatsApp for user ${userId} (clearData: ${clearData})...`);
         await whatsappWebService.disconnectClient(userId, io, clearData);
-        
+
         // Auto-initialize after disconnect to generate new QR
         console.log(`[API] Auto-initializing after disconnect to generate new QR...`);
         setTimeout(async () => {
@@ -1023,9 +1043,9 @@ app.post('/api/whatsapp-web/disconnect', async (req, res) => {
                 console.error('[API] Error auto-initializing after disconnect:', initError);
             }
         }, 2000); // Wait 2 seconds before re-initializing
-        
-        res.json({ 
-            success: true, 
+
+        res.json({
+            success: true,
             message: clearData ? 'Disconnected and old data cleared. New QR code will be generated...' : 'Disconnected. New QR code will be generated...',
             dataCleared: clearData
         });
@@ -1041,7 +1061,7 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
     try {
         // IMPROVED: Better phone number matching - handle different formats
         const result = await pool.query(`
-            SELECT 
+            SELECT DISTINCT ON (wc.contact_number)
                 wc.contact_number, 
                 wcon.contact_name,
                 wc.group_name,
@@ -1051,6 +1071,7 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
                     wc.contact_number
                 ) as display_name,
                 wc.last_message_time,
+                wc.unread_count,
                 wc.is_group
             FROM whatsapp_chats wc
             LEFT JOIN whatsapp_contacts wcon ON 
@@ -1062,7 +1083,7 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
                 )
                 AND wc.user_id = wcon.user_id
             WHERE wc.user_id = $1
-            ORDER BY wc.last_message_time DESC NULLS LAST
+            ORDER BY wc.contact_number, wc.last_message_time DESC NULLS LAST
         `, [userId]);
 
         const contacts = result.rows.map(row => {
@@ -1074,18 +1095,19 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
             if (!displayName || displayName.trim() === '' || displayName === row.contact_number) {
                 displayName = row.contact_number;
             }
-            
+
             return {
                 number: row.contact_number,
                 name: displayName, // Always use the best available name
                 lastMessageTime: row.last_message_time ? row.last_message_time.toISOString() : null,
+                unreadCount: row.unread_count || 0,
                 isGroup: row.is_group
             };
         });
-        
+
         // DEBUG: Log first few contacts to see what we're returning
         if (contacts.length > 0) {
-            console.log(`[API] Returning ${contacts.length} contacts. First 3:`, 
+            console.log(`[API] Returning ${contacts.length} contacts. First 3:`,
                 contacts.slice(0, 3).map(c => `${c.name} (${c.number})`).join(', '));
         }
 
@@ -1093,6 +1115,102 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
     } catch (error) {
         console.error('[API] Error fetching conversations:', error);
         res.status(500).json({ error: error.message });
+    }
+});
+
+// GET Contact Details (Sync Name) - Helper to repair missing names
+app.get('/api/whatsapp-business/contacts/:phoneNumber', async (req, res) => {
+    const { phoneNumber } = req.params;
+    const userId = req.user?.id || 1;
+
+    try {
+        const client = whatsappWebService.getClient(userId);
+        if (!client) return res.status(503).json({ error: 'Client not ready' });
+
+        const contactId = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@c.us`;
+        const contact = await client.getContactById(contactId);
+
+        let name = null;
+        if (contact) {
+            name = contact.name || contact.pushname || contact.notifyName;
+            // Update DB if we found a name
+            if (name) {
+                const normalizedNumber = phoneNumber.replace(/\D/g, '');
+                await pool.query(
+                    `INSERT INTO whatsapp_contacts (user_id, contact_number, contact_name)
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (user_id, contact_number) DO UPDATE SET
+                     contact_name = COALESCE(NULLIF($3, ''), whatsapp_contacts.contact_name)`,
+                    [userId, normalizedNumber, name]
+                );
+            }
+        }
+        res.json({ name: name || phoneNumber, number: phoneNumber });
+
+    } catch (error) {
+        console.error('[API] Error fetching contact details:', error);
+        res.status(500).json({ error: 'Failed to fetch contact' });
+    }
+});
+
+// WhatsApp Business API - Get ALL messages (for unread counts calculation in frontend)
+app.get('/api/whatsapp-business/messages', async (req, res) => {
+    const userId = req.user?.id || 1;
+    try {
+        // Query ALL synced messages from DB
+        const result = await pool.query(
+            `SELECT * FROM whatsapp_web_messages 
+             WHERE user_id = $1
+             ORDER BY timestamp ASC`,
+            [userId]
+        );
+
+        // Map correct read status
+        const formattedMessages = result.rows.map(msg => ({
+            id: msg.message_id,
+            sender: msg.sender,
+            senderNumber: msg.sender,
+            recipient: msg.recipient,
+            text: msg.message_text, // Add basic text
+            time: new Date(msg.timestamp).toLocaleTimeString(),
+            timestamp: msg.timestamp,
+            type: msg.is_from_me ? 'sent' : 'received',
+            read: msg.is_from_me ? true : (msg.is_read || false),
+            is_from_me: msg.is_from_me
+        }));
+
+        res.json(formattedMessages);
+    } catch (error) {
+        console.error('[API] Error fetching all messages:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// SYNC HISTORY Endpoint - Force backfill for a specific chat
+app.post('/messages/sync', async (req, res) => {
+    const { phoneNumber } = req.body;
+    const userId = req.user?.id || 1;
+
+    if (!phoneNumber) return res.status(400).json({ error: 'Phone number required' });
+
+    try {
+        const client = whatsappWebService.getClient(userId);
+        if (!client) return res.status(503).json({ error: 'Client not ready' });
+
+        console.log(`[API] Force syncing history for ${phoneNumber}...`);
+
+        // Call service function to sync
+        // We need to expose this from service or use existing helpers
+        // Since we exposed syncRecentChats, let's look for a single sync function or use manualFetchMessages logic
+        // Actually manualFetchMessages doesn't save? We need a saving logic.
+        // Let's rely on the service to expose a new helper or reuse code.
+        // I will add syncSingleChat to service next.
+        await whatsappWebService.syncSingleChat(client, userId, phoneNumber);
+
+        res.json({ success: true, message: 'Sync started' });
+    } catch (error) {
+        console.error('[API] Sync error:', error);
+        res.status(500).json({ error: 'Sync failed' });
     }
 });
 
@@ -1128,10 +1246,10 @@ app.get('/api/whatsapp-business/messages/:phoneNumber', async (req, res) => {
         });
 
         const formattedMessages = result.rows.map(msg => {
-            const senderNumber = msg.is_from_me 
-                ? null 
+            const senderNumber = msg.is_from_me
+                ? null
                 : (msg.sender && msg.sender.includes('@') ? msg.sender.split('@')[0] : msg.sender);
-            
+
             // Get sender name from contact map if available
             let senderName = 'Me';
             if (!msg.is_from_me && senderNumber) {
@@ -1158,7 +1276,7 @@ app.get('/api/whatsapp-business/messages/:phoneNumber', async (req, res) => {
                 timestamp: msg.timestamp,
                 type: msg.is_from_me ? 'sent' : 'received',
                 mediaUrl: null, // Basic text support for now
-                read: true
+                read: msg.is_from_me ? true : (msg.is_read || false)
             };
         });
 

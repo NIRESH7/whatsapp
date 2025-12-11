@@ -29,9 +29,24 @@ const Inbox: React.FC = () => {
 
     const fetchMessages = async () => {
         try {
-            const response = await axios.get('http://localhost:3000/messages');
-            const messages: Message[] = response.data;
-            processMessages(messages);
+            // Fetch both messages and conversations (for names)
+            const [msgsResponse, convsResponse] = await Promise.all([
+                axios.get('http://localhost:3000/api/whatsapp-business/messages', { withCredentials: true }),
+                axios.get('http://localhost:3000/api/whatsapp-business/conversations', { withCredentials: true })
+            ]);
+
+            const messages: Message[] = msgsResponse.data;
+            const conversations: any[] = convsResponse.data;
+
+            // Create a map of number -> name
+            const nameMap = new Map<string, string>();
+            conversations.forEach((c: any) => {
+                if (c.name && c.name !== c.number) {
+                    nameMap.set(c.number, c.name);
+                }
+            });
+
+            processMessages(messages, nameMap);
         } catch (error) {
             console.error('Error fetching messages:', error);
         } finally {
@@ -60,7 +75,7 @@ const Inbox: React.FC = () => {
         };
     }, []);
 
-    const processMessages = (messages: Message[]) => {
+    const processMessages = (messages: Message[], nameMap: Map<string, string>) => {
         const contactMap = new Map<string, ContactStats>();
 
         messages.forEach(msg => {
@@ -72,9 +87,29 @@ const Inbox: React.FC = () => {
             if (!contactNumber || contactNumber === 'Me') return;
 
             if (!contactMap.has(contactNumber)) {
+                // Formatting name to avoid JSON
+                let displayName = contactNumber;
+                if (displayName.includes('{') || displayName.includes('"')) {
+                    // It's likely a JSON string, try to parse or just extract user ID
+                    try {
+                        const parsed = JSON.parse(displayName);
+                        displayName = parsed.user || parsed.contact_name || contactNumber;
+                    } catch (e) {
+                        // If parse fails, just strip non-alphanumeric if it looks like JSON
+                        if (displayName.includes('server')) {
+                            displayName = displayName.replace(/[^0-9]/g, '');
+                        }
+                    }
+                }
+
+                // Override with real name from server if available
+                if (nameMap.has(contactNumber)) {
+                    displayName = nameMap.get(contactNumber)!;
+                }
+
                 contactMap.set(contactNumber, {
                     phoneNumber: contactNumber,
-                    name: contactNumber, // Could be enriched if we had a contact list
+                    name: displayName,
                     totalMessages: 0,
                     unreadCount: 0,
                     lastMessageTime: '',
@@ -85,10 +120,7 @@ const Inbox: React.FC = () => {
             const contact = contactMap.get(contactNumber)!;
             contact.totalMessages++;
 
-            // Update last message (assuming messages are roughly chronological or we sort)
-            // A simple way is to just take the latest one we process if we assume array order
-            // But better to compare timestamps if available. 
-            // For now, let's assume the array is appended to, so the last one is latest.
+            // Update last message
             contact.lastMessageTime = msg.time;
             contact.lastMessageText = msg.text;
 
@@ -100,6 +132,7 @@ const Inbox: React.FC = () => {
         const sortedStats = Array.from(contactMap.values()).sort((a, b) => {
             // Sort by unread count desc, then total messages desc
             if (b.unreadCount !== a.unreadCount) return b.unreadCount - a.unreadCount;
+            // Then by recency if available, or total counts
             return b.totalMessages - a.totalMessages;
         });
 
@@ -107,12 +140,17 @@ const Inbox: React.FC = () => {
     };
 
     const handleMarkAsRead = async (phoneNumber: string) => {
+        // Optimistic update: Remove unread status immediately
+        setStats(prev => prev.map(c =>
+            c.phoneNumber === phoneNumber ? { ...c, unreadCount: 0 } : c
+        ));
+
         try {
             await axios.post('http://localhost:3000/messages/read', { phoneNumber });
-            // Optimistically update UI or just wait for next poll
-            fetchMessages();
+            // fetchMessages(); // No need to re-fetch immediately if optimistic update works
         } catch (error) {
             console.error('Error marking as read:', error);
+            fetchMessages(); // Revert on error
         }
     };
 
