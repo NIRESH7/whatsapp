@@ -1176,7 +1176,9 @@ async function syncRemainingChats(userId, client, io, remainingChats, existingCo
 async function saveMessage(userId, message, client = null) {
     try {
         // Extract contact info from message
-        const senderNumber = message.fromMe ? null : (message.author || message.from || '').split('@')[0];
+        // Extract contact info from message
+        const from = (message.author || message.from || '') + ''; // Ensure string
+        const senderNumber = message.fromMe ? null : from.split('@')[0];
         const contactName = message.notifyName || message._data?.notifyName || null;
 
         // Get client if not provided
@@ -1572,7 +1574,8 @@ async function manualFetchMessages(client, chatId, limit = 50) {
                 isStatus: m.isStatus,
                 hasMedia: m.hasMedia,
                 fromMe: m.id.fromMe,
-                notifyName: m.notifyName || (m._data ? m._data.notifyName : null)
+                fromMe: m.id.fromMe,
+                notifyName: m.notifyName || (m._data ? m._data.notifyName : null) || (m.senderObj ? (m.senderObj.name || m.senderObj.pushname || m.senderObj.shortName) : null)
             };
         }).filter(m => m !== null);
     }, chatId, limit);

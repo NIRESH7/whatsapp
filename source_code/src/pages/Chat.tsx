@@ -71,15 +71,15 @@ const ContactItem = React.memo<{
                     )}
                 </div>
             </div>
-            <div className="flex flex-col items-end gap-1 ml-2">
+            <div className="flex flex-col items-end gap-1 ml-2 self-center">
                 {contact.lastMessageTime && (
-                    <span className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'
+                    <span className={`text-[10px] whitespace-nowrap ${isDark ? 'text-gray-500' : 'text-gray-400'
                         }`}>
                         {formatTime(contact.lastMessageTime)}
                     </span>
                 )}
-                {contact.unreadCount && contact.unreadCount > 0 && (
-                    <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-600 text-white">
+                {contact.unreadCount !== undefined && contact.unreadCount > 0 && (
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-green-500 text-white shadow-sm">
                         {contact.unreadCount}
                     </span>
                 )}
@@ -189,12 +189,12 @@ const Chat: React.FC = () => {
                     console.log(`[Chat] ${data.message}`);
                 }
             }
-            
+
             // CRITICAL: Clear UI state first, then refresh with new data
             setContacts([]);
             setMessages([]);
             setActiveContact(null);
-            
+
             // Wait a bit longer to ensure data is saved to database, then refresh
             setTimeout(() => {
                 console.log('[Chat] Refreshing contacts after sync...');
@@ -210,7 +210,7 @@ const Chat: React.FC = () => {
             setMessages([]);
             setActiveContact(null);
             setLoading(false);
-            
+
             if (data?.dataCleared) {
                 console.log('[Chat] ✅ Old data was cleared - ready for new device data');
                 // Show message to user
@@ -235,7 +235,7 @@ const Chat: React.FC = () => {
         setLoading(true);
         try {
             console.log(`[Chat] ⚡ FAST Fetching contacts (Attempt ${retryCount + 1})...`);
-            
+
             // FAST: Fetch both in parallel for speed
             const [contactsResponse, messagesResponse] = await Promise.all([
                 axios.get('http://localhost:3000/api/whatsapp-business/conversations', {
@@ -247,7 +247,7 @@ const Chat: React.FC = () => {
                     timeout: 5000 // Fast timeout
                 })
             ]);
-            
+
             const contactsData = contactsResponse.data;
             const allMessages: Message[] = messagesResponse.data;
 
@@ -303,12 +303,12 @@ const Chat: React.FC = () => {
 
             // IMPROVED: Ensure name is properly displayed
             // Use name if it exists and is different from number, otherwise use number
-            const displayName = (contact.name && 
-                                contact.name.trim() !== '' && 
-                                contact.name !== contact.number &&
-                                !contact.number.includes(contact.name.replace(/\D/g, ''))) 
-                                ? contact.name 
-                                : contact.number;
+            const displayName = (contact.name &&
+                contact.name.trim() !== '' &&
+                contact.name !== contact.number &&
+                !contact.number.includes(contact.name.replace(/\D/g, '')))
+                ? contact.name
+                : contact.number;
 
             return {
                 number: contact.number,
@@ -339,14 +339,14 @@ const Chat: React.FC = () => {
                     withCredentials: true
                 });
                 console.log('[Chat] WhatsApp status:', statusResponse.data);
-                
+
                 // If ready but no data or last sync was long ago, trigger sync
                 if (statusResponse.data.ready) {
                     const hasRecentData = statusResponse.data.hasData && statusResponse.data.session?.last_sync;
-                    const shouldSync = !hasRecentData || 
-                        (statusResponse.data.session?.last_sync && 
-                         (Date.now() - new Date(statusResponse.data.session.last_sync).getTime()) > 3600000); // 1 hour
-                    
+                    const shouldSync = !hasRecentData ||
+                        (statusResponse.data.session?.last_sync &&
+                            (Date.now() - new Date(statusResponse.data.session.last_sync).getTime()) > 3600000); // 1 hour
+
                     if (shouldSync) {
                         console.log('[Chat] ⚡ WhatsApp ready but needs sync, triggering FAST sync...');
                         try {
@@ -364,11 +364,11 @@ const Chat: React.FC = () => {
             } catch (statusErr) {
                 console.log('[Chat] Could not check WhatsApp status, continuing anyway:', statusErr);
             }
-            
+
             // Always try to refresh contacts (will retry if no data)
             refreshContacts(0);
         };
-        
+
         initialize();
     }, []);
 

@@ -42,7 +42,22 @@ const Inbox: React.FC = () => {
     useEffect(() => {
         fetchMessages();
         const interval = setInterval(fetchMessages, 3000); // Poll every 3 seconds
-        return () => clearInterval(interval);
+
+        // Listen for real-time messages
+        const socket = (window as any).socket; // Access global socket if available, or import context
+        if (socket) {
+            socket.on('new-message', (data: any) => {
+                console.log('[Live Inbox] New message received:', data);
+                fetchMessages(); // Refresh stats immediately
+            });
+        }
+
+        return () => {
+            clearInterval(interval);
+            if (socket) {
+                socket.off('new-message');
+            }
+        };
     }, []);
 
     const processMessages = (messages: Message[]) => {
