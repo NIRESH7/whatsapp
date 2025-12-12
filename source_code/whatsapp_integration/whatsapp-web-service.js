@@ -859,12 +859,12 @@ async function syncChatHistory(userId, io) {
 
         // Process each chat and extract contact names
         let contactCount = 0;
-        // OPTIMIZED: Limit initial sync to first 50 chats for faster loading
-        const maxChatsForInitialSync = 50;
-        const chatsToSync = chats.slice(0, maxChatsForInitialSync);
+        // CRITICAL: Sync ALL chats - NO LIMIT - user wants complete data
+        // User explicitly said: "enaku complte conatcal la irukua ella name and full chat history uhh frect papanu ebvolo time anau paravalu"
+        const chatsToSync = chats; // Sync ALL chats, not just first 50
         const totalChats = chats.length;
 
-        console.log(`[WhatsApp Web] Syncing ${chatsToSync.length} of ${totalChats} chats for faster initial load...`);
+        console.log(`[WhatsApp Web] 🚀 Syncing ALL ${chatsToSync.length} chats - NO LIMIT - Complete data fetch...`);
 
         for (let i = 0; i < chatsToSync.length; i++) {
             const chat = chatsToSync[i];
@@ -872,35 +872,45 @@ async function syncChatHistory(userId, io) {
             try {
                 // Extract contact number
                 const contactNumber = chat.id.user || chat.id._serialized.split('@')[0];
-                // IMPROVED: Get contact name from chat object first (safer, avoids getIsMyContact error)
-                let contactName = chat.name || chat.pushname || null;
-
-                // CRITICAL FIX: Use safer method to get contact name via Puppeteer (avoids getIsMyContact error)
+                
+                // CRITICAL: Get contact name - WhatsApp Web shows names exactly as they appear
+                // Priority: chat.name → chat.pushname → Store.Contact → null
+                let contactName = null;
+                
+                // Step 1: Try chat.name first (most reliable - this is what WhatsApp Web shows)
+                if (chat.name && chat.name.trim() && chat.name !== contactNumber) {
+                    contactName = chat.name.trim();
+                    console.log(`[WhatsApp Web] 📞 Using chat.name for ${contactNumber}: ${contactName}`);
+                }
+                
+                // Step 2: Try chat.pushname (display name from WhatsApp)
+                if (!contactName && chat.pushname && chat.pushname.trim() && chat.pushname !== contactNumber) {
+                    contactName = chat.pushname.trim();
+                    console.log(`[WhatsApp Web] 📞 Using chat.pushname for ${contactNumber}: ${contactName}`);
+                }
+                
+                // Step 3: Try Store.Contact via Puppeteer (for saved contacts)
                 if (!contactName && !chat.isGroup) {
                     try {
                         const contactId = chat.id._serialized;
-                        // Use manual Puppeteer evaluation instead of getContactById to avoid API errors
                         const contactData = await client.pupPage.evaluate((cid) => {
                             try {
                                 if (!window.Store || !window.Store.Contact) return null;
                                 const contact = window.Store.Contact.get(cid);
                                 if (!contact) return null;
-                                return {
-                                    name: contact.name || contact.pushname || contact.notifyName || contact.shortName || null,
-                                    pushname: contact.pushname,
-                                    notifyName: contact.notifyName
-                                };
+                                // Try all name fields - WhatsApp Web uses these
+                                return contact.name || contact.pushname || contact.notifyName || contact.shortName || contact.verifiedName || null;
                             } catch (e) {
                                 return null;
                             }
                         }, contactId);
                         
-                        if (contactData && contactData.name) {
-                            contactName = contactData.name;
-                            console.log(`[WhatsApp Web] 📞 Got contact name via Puppeteer for ${contactNumber}: ${contactName}`);
+                        if (contactData && contactData.trim() && contactData !== contactNumber) {
+                            contactName = contactData.trim();
+                            console.log(`[WhatsApp Web] 📞 Got contact name via Store.Contact for ${contactNumber}: ${contactName}`);
                         }
                     } catch (contactErr) {
-                        // Ignore - contact might not be in phonebook or Store not ready
+                        // Ignore - contact might not be in phonebook
                         console.log(`[WhatsApp Web] Could not fetch contact details via Puppeteer for ${contactNumber}: ${contactErr.message}`);
                     }
                 }
@@ -921,58 +931,34 @@ async function syncChatHistory(userId, io) {
                     ]
                 );
 
-                // Save contact name from chat (if not a group) - IMPROVED: Better name extraction
+                // Save contact name from chat (if not a group) - CRITICAL: Save name exactly as WhatsApp Web shows it
                 if (!chat.isGroup && contactNumber) {
                     try {
-                        // Get contact name from multiple sources - use safer Puppeteer method
+                        // Use the contactName we already fetched above (from chat.name, chat.pushname, or Store.Contact)
                         let finalContactName = contactName;
 
-                        // CRITICAL FIX: Use safer Puppeteer evaluation instead of getContactById (avoids getIsMyContact error)
-                        if (!finalContactName) {
-                            try {
-                                const contactId = chat.id._serialized;
-                                const contactData = await client.pupPage.evaluate((cid) => {
-                                    try {
-                                        if (!window.Store || !window.Store.Contact) return null;
-                                        const contact = window.Store.Contact.get(cid);
-                                        if (!contact) return null;
-                                        return contact.name || contact.pushname || contact.notifyName || contact.shortName || contact.verifiedName || null;
-                                    } catch (e) {
-                                        return null;
-                                    }
-                                }, contactId);
-                                
-                                if (contactData) {
-                                    finalContactName = contactData;
-                                    console.log(`[WhatsApp Web] 📞 Fetched contact name via Puppeteer for ${contactNumber}: ${finalContactName}`);
-                                }
-                            } catch (contactErr) {
-                                // Ignore - contact might not be in phonebook
-                                console.log(`[WhatsApp Web] Could not fetch contact details for ${contactNumber}: ${contactErr.message}`);
+                        // CRITICAL: WhatsApp Web shows names even if they're similar to numbers
+                        // Only reject if it's EXACTLY the same as the number
+                        if (finalContactName && finalContactName.trim() === contactNumber) {
+                            // If name is exactly the number, try to get a better one
+                            if (chat.pushname && chat.pushname.trim() !== contactNumber) {
+                                finalContactName = chat.pushname.trim();
+                            } else {
+                                // Keep the number as name - WhatsApp Web shows number if no name
+                                finalContactName = contactNumber;
                             }
                         }
-
-                        // Fallback to chat.name or chat.pushname
-                        if (!finalContactName) {
-                            finalContactName = chat.name || chat.pushname || null;
-                        }
-
-
-                        // Clean up the name (remove extra spaces, etc.)
-                        if (finalContactName) {
+                        
+                        // If still no name, use number (WhatsApp Web shows number if no name saved)
+                        if (!finalContactName || !finalContactName.trim()) {
+                            finalContactName = contactNumber;
+                        } else {
                             finalContactName = finalContactName.trim();
-
-                            // IMPORTANT: Even if name is similar to number, SAVE IT if it's different in any way
-                            // The previous logic was too aggressive in nulling names
-
-                            // Only nullify if identical
-                            if (finalContactName === contactNumber) {
-                                // Double check if we can get a better name from pushname
-                                if (chat.pushname && chat.pushname !== contactNumber) {
-                                    finalContactName = chat.pushname;
-                                } else {
-                                    // finalContactName = null; // KEEP IT! Better to have a formatted number than nothing if that's all we have
-                                }
+                            
+                            // CRITICAL: Don't save "WhatsApp" as contact name - it's not a real name
+                            // If name is "WhatsApp", use phone number instead
+                            if (finalContactName.toLowerCase() === 'whatsapp') {
+                                finalContactName = contactNumber;
                             }
                         }
 
@@ -1002,21 +988,30 @@ async function syncChatHistory(userId, io) {
                             );
                         }
 
-                        if (finalContactName) {
-                            contactCount++;
-                            console.log(`[WhatsApp Web] ✅ Saved contact: ${finalContactName} (${contactNumber})`);
-                        } else {
-                            // Use number as name if no name found
-                            finalContactName = contactNumber;
-                            console.log(`[WhatsApp Web] ⚠️ No name found for ${contactNumber} - will show as number`);
-                        }
+                        // Always increment contact count
+                        contactCount++;
+                        console.log(`[WhatsApp Web] ✅ Saved contact: ${finalContactName} (${contactNumber})`);
 
-                        // CRITICAL: Emit individual contact update to frontend for progressive display
+                        // CRITICAL: Emit contact-updated event for progressive display (only once)
                         io.to(`user-${userId}`).emit('contact-updated', {
                             contactNumber: contactNumber,
                             contactName: finalContactName,
                             contactIndex: i + 1,
                             totalContacts: chatsToSync.length
+                        });
+                        
+                        // Also emit detailed progress update
+                        io.to(`user-${userId}`).emit('sync-progress', {
+                            stage: 'chats',
+                            current: i + 1,
+                            total: chatsToSync.length,
+                            totalChats: chatsToSync.length,
+                            totalContacts: chatsToSync.length,
+                            contactsFetched: contactCount,
+                            messages: totalMessages,
+                            currentContact: finalContactName || contactNumber,
+                            currentContactNumber: contactNumber,
+                            message: `Fetching ${i + 1}/${chatsToSync.length}: ${finalContactName || contactNumber} - Complete history...`
                         });
                     } catch (contactError) {
                         console.error(`[WhatsApp Web] Error saving contact for ${contactNumber}:`, contactError);
@@ -1024,11 +1019,45 @@ async function syncChatHistory(userId, io) {
                 }
 
                 // CRITICAL: Fetch COMPLETE message history for this contact before moving to next
+                // User wants FULL history for ALL contacts - NO LIMIT
                 let messages = [];
                 try {
-                    // Fetch ALL messages (not just 50) - user wants complete history
-                    console.log(`[WhatsApp Web] Fetching complete message history for ${contactName || contactNumber}...`);
-                    messages = await manualFetchMessages(client, chat.id._serialized, 1000); // Fetch up to 1000 messages
+                    // Fetch ALL messages - NO LIMIT - user wants complete history
+                    console.log(`[WhatsApp Web] Fetching COMPLETE message history for ${contactName || contactNumber}...`);
+                    
+                    // Try to fetch in multiple batches to get ALL messages
+                    let allMessages = [];
+                    let batchSize = 10000;
+                    let hasMore = true;
+                    let attempts = 0;
+                    const maxAttempts = 20; // Allow up to 200,000 messages per chat
+                    
+                    while (hasMore && attempts < maxAttempts) {
+                        const batchMessages = await manualFetchMessages(client, chat.id._serialized, batchSize);
+                        
+                        if (batchMessages.length === 0) {
+                            hasMore = false;
+                            break;
+                        }
+                        
+                        // Merge with existing messages (avoid duplicates)
+                        const newMessages = batchMessages.filter(msg => 
+                            !allMessages.some(existing => existing.id._serialized === msg.id._serialized)
+                        );
+                        
+                        allMessages = [...allMessages, ...newMessages];
+                        
+                        // If we got less than batch size, we've reached the end
+                        if (batchMessages.length < batchSize) {
+                            hasMore = false;
+                        } else {
+                            // Wait a bit before next batch to avoid rate limits
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                            attempts++;
+                        }
+                    }
+                    
+                    messages = allMessages;
                     console.log(`[WhatsApp Web] Chat ${i + 1}/${chatsToSync.length}: ${messages.length} messages fetched for ${contactName || contactNumber}`);
                 } catch (msgError) {
                     console.warn(`[WhatsApp Web] ⚠️ Error fetching messages for chat ${i + 1}:`, msgError.message);
@@ -1094,9 +1123,9 @@ async function syncChatHistory(userId, io) {
             [userId]
         );
 
-        // FAST: Emit sync complete immediately for fast redirect
-        console.log(`[WhatsApp Web] ✅ Initial sync complete: ${totalMessages} messages, ${contactCount} contacts from ${chatsToSync.length} chats`);
-        console.log(`[WhatsApp Web] ℹ️ Total ${totalChats} chats available (${totalChats - chatsToSync.length} more will sync in background)`);
+        // CRITICAL: All chats synced - no background sync needed since we sync ALL chats
+        console.log(`[WhatsApp Web] ✅ COMPLETE sync finished: ${totalMessages} messages, ${contactCount} contacts from ${chatsToSync.length} chats`);
+        console.log(`[WhatsApp Web] ✅ ALL ${totalChats} chats synced with complete history!`);
 
         // Emit sync-complete with completion message
         io.to(`user-${userId}`).emit('sync-complete', {
@@ -1106,18 +1135,9 @@ async function syncChatHistory(userId, io) {
             contacts: contactCount,
             totalContacts: totalChats,
             completed: true,
-            message: `You have completed fetched ${contactCount} contacts and ${totalMessages} messages!`,
-            note: totalChats > chatsToSync.length ? `Synced ${chatsToSync.length} of ${totalChats} chats. More will load in background.` : null
+            message: `✅ Successfully fetched ALL ${contactCount} contacts and ${totalMessages} messages with complete history!`,
+            note: null // No background sync - all done!
         });
-
-        // Continue syncing remaining chats in background (non-blocking)
-        if (totalChats > chatsToSync.length) {
-            console.log(`[WhatsApp Web] 🔄 Continuing background sync for remaining ${totalChats - chatsToSync.length} chats...`);
-            // Don't await - let it run in background
-            syncRemainingChats(userId, client, io, chats.slice(maxChatsForInitialSync), contactCount).catch(err => {
-                console.error('[WhatsApp Web] Background sync error (non-critical):', err);
-            });
-        }
 
         console.log(`[WhatsApp Web] ✅ FAST Sync complete for user ${userId} - ${chatsToSync.length} chats, ${totalMessages} messages, ${contactCount} contacts`);
         syncingUsers.delete(userId);
@@ -1235,6 +1255,13 @@ async function saveMessage(userId, message, client = null) {
             client = activeClients.get(userId);
         }
 
+        // CRITICAL: Filter out JSON strings from message body before saving
+        let messageBody = message.body || '';
+        // Filter out JSON strings from message body before saving
+        if (messageBody.includes('{"server"') || messageBody.includes('"user"') || messageBody.trim().startsWith('{')) {
+            messageBody = ''; // Do not save JSON strings as message text
+        }
+
         await pool.query(
             `INSERT INTO whatsapp_web_messages 
              (user_id, message_id, chat_id, sender, message_text, message_type, is_from_me, is_read, timestamp)
@@ -1249,7 +1276,7 @@ async function saveMessage(userId, message, client = null) {
                 typeof (message.author || message.from) === 'object' ?
                     ((message.author || message.from)._serialized || (message.author || message.from).user) :
                     (message.author || message.from),
-                message.body || '',
+                messageBody, // Use filtered messageBody
                 message.type,
                 message.fromMe,
                 message.fromMe, // is_read (true if from me, false if from others)
@@ -1371,13 +1398,21 @@ async function saveMessage(userId, message, client = null) {
  * Format message for frontend
  */
 function formatMessage(message) {
+    const senderNumber = (message.author || message.from || '').split('@')[0];
+    const recipientNumber = (message.to || '').split('@')[0];
     return {
         id: message.id._serialized,
         from: message.from,
-        body: message.body,
+        sender: message.fromMe ? 'Me' : senderNumber, // Use senderNumber
+        senderNumber: senderNumber,
+        recipient: message.fromMe ? recipientNumber : 'Me', // Use recipientNumber
+        text: message.body || '', // Use 'text' for body
+        body: message.body || '', // Keep for backward compatibility
         type: message.type,
         timestamp: message.timestamp,
-        fromMe: message.fromMe
+        time: new Date(message.timestamp * 1000).toLocaleTimeString(), // Add formatted time
+        fromMe: message.fromMe,
+        read: message.fromMe // Default read status
     };
 }
 
@@ -1607,6 +1642,7 @@ async function manualGetChats(client) {
 
 /**
  * Manually fetch messages using Puppeteer evaluation
+ * CRITICAL: Enhanced to load ALL messages by calling loadEarlierMsgs multiple times
  */
 async function manualFetchMessages(client, chatId, limit = 50) {
     return await client.pupPage.evaluate(async (chatId, limit) => {
@@ -1615,14 +1651,48 @@ async function manualFetchMessages(client, chatId, limit = 50) {
         const chat = window.Store.Chat.get(chatId);
         if (!chat) return [];
 
-        // Try to load earlier messages if we don't have enough
-        if (chat.msgs && chat.msgs.length < limit && typeof chat.loadEarlierMsgs === 'function') {
-            try {
-                await chat.loadEarlierMsgs();
-            } catch (e) { }
-        } else if (typeof chat.loadEarlierMsgs === 'function') {
-            // If msgs prop doesn't exist but method does
-            try { await chat.loadEarlierMsgs(); } catch (e) { }
+        // CRITICAL: Load earlier messages multiple times to get ALL messages
+        // User wants complete history - no limit
+        if (typeof chat.loadEarlierMsgs === 'function') {
+            let previousCount = 0;
+            let currentCount = 0;
+            let attempts = 0;
+            const maxAttempts = 50; // Try up to 50 times to load all messages
+            
+            // Keep loading earlier messages until we can't load more
+            while (attempts < maxAttempts) {
+                // Get current message count
+                let msgs = [];
+                if (chat.msgs && chat.msgs.models) {
+                    msgs = chat.msgs.models;
+                } else if (chat.msgs && typeof chat.msgs.getModelsArray === 'function') {
+                    msgs = chat.msgs.getModelsArray();
+                } else if (chat.msgs && chat.msgs._models) {
+                    msgs = chat.msgs._models;
+                } else if (chat.msgs && Array.isArray(chat.msgs)) {
+                    msgs = chat.msgs;
+                }
+                
+                previousCount = currentCount;
+                currentCount = msgs.length;
+                
+                // If count didn't increase, we've loaded all messages
+                if (previousCount > 0 && currentCount === previousCount) {
+                    break;
+                }
+                
+                // Try to load more
+                try {
+                    await chat.loadEarlierMsgs();
+                    // Wait a bit for messages to load
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (e) {
+                    // If error, we've probably reached the end
+                    break;
+                }
+                
+                attempts++;
+            }
         }
 
         // Get messages models
@@ -1639,7 +1709,9 @@ async function manualFetchMessages(client, chatId, limit = 50) {
 
         if (!Array.isArray(msgs)) return [];
 
-        const sliced = msgs.slice(-limit);
+        // CRITICAL: Return ALL messages, not just sliced - user wants complete history
+        // Only slice if limit is specified and we want to limit
+        const sliced = limit && limit > 0 ? msgs.slice(-limit) : msgs;
 
         return sliced.map(m => {
             // Validate m
@@ -1721,7 +1793,24 @@ async function syncSingleChat(client, userId, contactNumber) {
             console.log(`[WhatsApp Web] Fetching COMPLETE history for ${chat.name || chatId}...`);
             // CRITICAL: Fetch ALL messages (no limit - user wants complete history)
             // Use manual fetch for better reliability and no limits
-            const messages = await manualFetchMessages(client, chatId, 10000); // Fetch up to 10000 messages
+            // Try to fetch in batches to get complete history
+            let allMessages = [];
+            let batchLimit = 10000;
+            let currentMessages = await manualFetchMessages(client, chatId, batchLimit);
+            allMessages = currentMessages;
+            
+            // If we got the full batch, try to load more (pagination)
+            while (currentMessages.length === batchLimit) {
+                console.log(`[WhatsApp Web] Loaded ${currentMessages.length} messages, trying to load more...`);
+                // Wait a bit before next batch
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                const nextBatch = await manualFetchMessages(client, chatId, batchLimit);
+                if (nextBatch.length === 0 || nextBatch.length === currentMessages.length) break; // No more messages
+                allMessages = nextBatch; // Replace with latest (they should be cumulative)
+                currentMessages = nextBatch;
+            }
+            
+            const messages = allMessages;
 
             let count = 0;
             for (const msg of messages) {

@@ -205,11 +205,25 @@ app.post('/messages/read', (req, res) => {
     });
 
     // Also update database for WhatsApp Web messages
+    const userId = req.user?.id || 1;
     pool.query(
-        'UPDATE whatsapp_web_messages SET is_read = true WHERE user_id = $1 AND sender LIKE $2',
-        [req.user?.id || 1, `%${phoneNumber}%`]
+        'UPDATE whatsapp_web_messages SET is_read = true WHERE user_id = $1 AND sender LIKE $2 AND is_read = false',
+        [userId, `%${phoneNumber}%`]
     ).then(result => {
         console.log(`Updated ${result.rowCount} messages in DB as read for ${phoneNumber}`);
+        
+        // CRITICAL: Also reset unread_count in whatsapp_chats table
+        // Normalize phone number for matching
+        const normalizedNumber = phoneNumber.replace(/\s+/g, '').replace(/^\+/, '');
+        pool.query(
+            `UPDATE whatsapp_chats SET unread_count = 0 
+             WHERE user_id = $1 AND (contact_number = $2 OR contact_number LIKE $3)`,
+            [userId, normalizedNumber, `%${normalizedNumber}%`]
+        ).then(chatResult => {
+            console.log(`Reset unread count for chat ${phoneNumber}`);
+        }).catch(chatErr => {
+            console.error('Error resetting chat unread count:', chatErr);
+        });
     }).catch(err => {
         console.error('Error updating DB read status:', err);
     });
@@ -1087,18 +1101,53 @@ app.get('/api/whatsapp-business/conversations', async (req, res) => {
         `, [userId]);
 
         const contacts = result.rows.map(row => {
-            // Use contact_name if available, otherwise group_name, otherwise number
-            let displayName = row.contact_name;
-            if (!displayName || displayName.trim() === '' || displayName === row.contact_number) {
-                displayName = row.group_name;
+            // CRITICAL: Priority - contact_name from database, then phone number
+            // Only use group_name if it's actually a group chat
+            let displayName = null;
+            
+            // Priority 1: Use contact_name from whatsapp_contacts table (actual saved name)
+            if (row.contact_name && row.contact_name.trim() && row.contact_name !== row.contact_number) {
+                // Filter out "WhatsApp" - it's not a real contact name
+                const contactName = row.contact_name.trim();
+                if (contactName.toLowerCase() !== 'whatsapp') {
+                    displayName = contactName;
+                }
             }
-            if (!displayName || displayName.trim() === '' || displayName === row.contact_number) {
+            
+            // If we still don't have a name:
+            // Priority 2: If it's a group, use group_name (but not "WhatsApp")
+            if (!displayName && row.is_group && row.group_name && row.group_name.trim()) {
+                const groupName = row.group_name.trim();
+                if (groupName.toLowerCase() !== 'whatsapp') {
+                    displayName = groupName;
+                }
+            }
+            
+            // Priority 3: If no name saved, use phone number
+            if (!displayName) {
+                // Extract phone number (will be cleaned below)
                 displayName = row.contact_number;
             }
+            
+            // CRITICAL: Clean contact_number - remove JSON objects
+            let cleanNumber = row.contact_number;
+            if (typeof cleanNumber === 'string' && (cleanNumber.includes('{"server"') || cleanNumber.includes('"server"') || cleanNumber.includes('"user"') || cleanNumber.trim().startsWith('{'))) {
+                // Try to extract phone number from JSON
+                try {
+                    const parsed = JSON.parse(cleanNumber);
+                    cleanNumber = parsed.user || parsed._serialized?.split('@')[0] || '';
+                } catch (e) {
+                    // If parsing fails, try regex
+                    const match = cleanNumber.match(/"user":"(\d+)"/);
+                    cleanNumber = match ? match[1] : cleanNumber.split('@')[0];
+                }
+            }
+            // Ensure it's a string
+            cleanNumber = String(cleanNumber || '');
 
             return {
-                number: row.contact_number,
-                name: displayName, // Always use the best available name
+                number: cleanNumber, // Clean number without JSON
+                name: displayName, // Always use the best available name from database
                 lastMessageTime: row.last_message_time ? row.last_message_time.toISOString() : null,
                 unreadCount: row.unread_count || 0,
                 isGroup: row.is_group

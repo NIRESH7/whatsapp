@@ -86,36 +86,146 @@ const ContactItem = React.memo<{
                 <div className="flex-1 min-w-0">
                     <div className={`font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'
                         }`}>
-                        {/* CRITICAL: Show the name from API - trust the data */}
+                        {/* CRITICAL: Show contact name from database - API already returns correct name */}
                         {(() => {
-                            // Use contact.name if it exists and is valid
-                            if (contact.name && contact.name.trim() && contact.name !== contact.number) {
-                                const cleaned = cleanContactName(contact.name);
-                                // Only show "Unknown Contact" if cleanContactName rejected it
-                                // Otherwise show the actual name
-                                return cleaned === 'Unknown Contact' ? contact.name : cleaned;
+                            // Get name from contact.name (from database - API returns contact_name as name)
+                            let nameToShow = contact.name;
+                            
+                            // Extract phone number for fallback
+                            let phoneNumber = contact.number;
+                            if (typeof phoneNumber === 'object') {
+                                phoneNumber = (phoneNumber as any)?.user || (phoneNumber as any)?._serialized?.split('@')[0] || '';
                             }
-                            // If name is same as number or missing, check if number is actually a name
-                            if (contact.name && contact.name.trim()) {
-                                return cleanContactName(contact.name);
+                            const phoneStr = String(phoneNumber || '');
+                            
+                            // Clean phone number - remove JSON
+                            let cleanPhone = phoneStr;
+                            if (phoneStr.includes('{"server"') || phoneStr.includes('"server"') || phoneStr.includes('"user"')) {
+                                const match = phoneStr.match(/"user":"(\d+)"/);
+                                cleanPhone = match ? match[1] : phoneStr.split('@')[0];
                             }
-                            // Last resort - show unknown
-                            return 'Unknown Contact';
+                            
+                            // CRITICAL: If we have a name from database, use it
+                            // Only reject if it's clearly invalid (empty, "0", "WhatsApp", or JSON)
+                            if (nameToShow && nameToShow !== null && nameToShow !== undefined) {
+                                const trimmed = String(nameToShow).trim();
+                                
+                                // Reject clearly invalid names
+                                if (trimmed === '' || trimmed === '0' || trimmed.toLowerCase() === 'whatsapp') {
+                                    // Invalid name - use phone number
+                                    return cleanPhone || 'Contact';
+                                }
+                                
+                                // Reject JSON objects
+                                if (trimmed.includes('{"server"') || trimmed.includes('"server"') || trimmed.includes('"user"') || trimmed.startsWith('{')) {
+                                    // JSON - use phone number
+                                    return cleanPhone || 'Contact';
+                                }
+                                
+                                // If name is same as phone number, it means no name was saved
+                                if (trimmed === cleanPhone || trimmed === phoneStr) {
+                                    return cleanPhone || 'Contact';
+                                }
+                                
+                                // VALID NAME - show it as-is (this is the contact name from database)
+                                return trimmed;
+                            }
+                            
+                            // No name from database - show phone number
+                            if (cleanPhone && cleanPhone !== '0') {
+                                return cleanPhone;
+                            }
+                            
+                            // Last resort
+                            return 'Contact';
                         })()}
                     </div>
-                    {contact.lastMessageText && (
-                        <div className={`text-sm truncate ${isDark ? 'text-gray-400' : 'text-gray-500'
-                            }`}>
-                            {contact.lastMessageText}
-                        </div>
-                    )}
-                    {/* Show phone number as subtitle ONLY if we have a valid name that's different from number */}
-                    {contact.name && contact.name.trim() && contact.name !== contact.number && contact.number && (
-                        <div className={`text-xs truncate ${isDark ? 'text-gray-500' : 'text-gray-400'
-                            }`}>
-                            {contact.number}
-                        </div>
-                    )}
+                    {contact.lastMessageText && (() => {
+                        let messageText = contact.lastMessageText || '';
+                        // Filter out JSON strings from last message text
+                        const isJSON = 
+                            !messageText || 
+                            messageText.trim().length === 0 ||
+                            messageText.includes('{"server"') || 
+                            messageText.includes('"server"') || 
+                            messageText.includes('"user"') ||
+                            messageText.includes('server":"') ||
+                            messageText.includes('user":"') ||
+                            messageText.trim().startsWith('{') ||
+                            messageText.trim().startsWith('[') ||
+                            /^\s*\{.*\}\s*$/.test(messageText.trim()) ||
+                            /^\s*\{.*"server".*\}\s*$/.test(messageText.trim()) ||
+                            /^\s*\{.*"user".*\}\s*$/.test(messageText.trim()) ||
+                            (messageText.includes('server') && messageText.includes('user')) ||
+                            (messageText.includes('server') && messageText.includes('lid')) ||
+                            (messageText.includes('server') && messageText.includes('hd'));
+                        
+                        if (isJSON) {
+                            return null; // Don't show JSON strings
+                        }
+                        // Also filter out serialized IDs
+                        if (messageText.includes('@') && /^\d+@/.test(messageText.trim())) {
+                            return null;
+                        }
+                        // Filter out pure phone numbers
+                        if (/^[\d\s\-\(\)\+\.]+$/.test(messageText.trim()) && messageText.trim().length > 5) {
+                            return null;
+                        }
+                        return (
+                            <div className={`text-sm truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                {messageText}
+                            </div>
+                        );
+                    })()}
+                    {/* Show phone number as subtitle ONLY if we have a REAL name (not a number) */}
+                    {/* CRITICAL: Don't show subtitle if main name is a phone number */}
+                    {(() => {
+                        // Get the actual displayed name
+                        const displayedName = (() => {
+                            let nameToShow = contact.name;
+                            if (nameToShow && nameToShow.trim() && !nameToShow.includes('{"server"') && !nameToShow.includes('"server"') && !nameToShow.includes('"user"') && !nameToShow.trim().startsWith('{')) {
+                                return nameToShow.trim();
+                            }
+                            return null;
+                        })();
+                        
+                        // If displayed name is a phone number, don't show subtitle
+                        if (!displayedName || displayedName === contact.number || /^[\d\s\-\(\)\+\.]+$/.test(displayedName.replace(/\s/g, ''))) {
+                            return null; // Don't show subtitle if main name is a number
+                        }
+                        
+                        // We have a real name - show phone number as subtitle
+                        if (!contact.number) return null;
+                        
+                        // Extract phone number from contact.number (handle JSON objects)
+                        let phoneNumber = contact.number;
+                        if (typeof phoneNumber === 'object' || (typeof phoneNumber === 'string' && phoneNumber.includes('{'))) {
+                            try {
+                                const parsed = typeof phoneNumber === 'string' ? JSON.parse(phoneNumber) : phoneNumber;
+                                phoneNumber = parsed.user || parsed._serialized?.split('@')[0] || String(phoneNumber);
+                            } catch (e) {
+                                // If parsing fails, try to extract from string
+                                const match = String(phoneNumber).match(/"user":"(\d+)"/);
+                                if (match) phoneNumber = match[1];
+                                else phoneNumber = String(phoneNumber).split('@')[0];
+                            }
+                        }
+                        
+                        // Only show if it's a valid phone number (not JSON)
+                        const phoneStr = String(phoneNumber);
+                        const isJSON = phoneStr.includes('{"server"') || phoneStr.includes('"server"') || phoneStr.includes('"user"') || phoneStr.trim().startsWith('{');
+                        const isValidPhone = /^[\d\s\-\(\)\+]+$/.test(phoneStr) && phoneStr.replace(/\D/g, '').length >= 10;
+                        
+                        if (isJSON || !isValidPhone) {
+                            return null; // Don't show JSON or invalid numbers
+                        }
+                        
+                        return (
+                            <div className={`text-xs truncate ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                {phoneStr}
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
             <div className="flex flex-col items-end gap-1 ml-2 self-center">
@@ -126,7 +236,7 @@ const ContactItem = React.memo<{
                     </span>
                 )}
                 {contact.unreadCount !== undefined && contact.unreadCount > 0 && (
-                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-green-500 text-white shadow-sm">
+                    <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-blue-500 text-white shadow-sm">
                         {contact.unreadCount}
                     </span>
                 )}
@@ -191,28 +301,36 @@ const Chat: React.FC = () => {
         socket.on('new-message', (data: any) => {
             console.log('[Chat] New message received:', data);
 
+            // Extract phone number from data
+            const senderNumber = data.senderNumber || (data.from || '').split('@')[0];
+            const recipientNumber = data.recipient || (data.to || '').split('@')[0];
+            const isFromMe = data.fromMe || false;
+
             // 1. Update Messages if chat is open
             if (activeContact) {
+                // Extract active contact number properly
+                let activeContactNumber = activeContact.number;
+                if (typeof activeContactNumber === 'object') {
+                    activeContactNumber = (activeContactNumber as any)?.user || (activeContactNumber as any)?._serialized?.split('@')[0];
+                } else if (typeof activeContactNumber === 'string' && activeContactNumber.includes('@')) {
+                    activeContactNumber = activeContactNumber.split('@')[0];
+                }
+
                 const isForActiveChat =
-                    (data.from === activeContact.number) ||
-                    (data.fromMe && data.recipient === activeContact.number); // Needs adjustment if backend doesn't send recipient on 'new-message'
+                    (!isFromMe && senderNumber === activeContactNumber) ||
+                    (isFromMe && recipientNumber === activeContactNumber);
 
-                if (isForActiveChat || data.fromMe /* self-sent via other device */) {
-                    // Check logic: usually 'new-message' from backend has `from` and `body`.
-                    // If it's incoming: `from` is the sender.
-                    // If it's outgoing (synced): `fromMe` is true.
-
-                    // Ideally we fetch the single message or just append it.
-                    // For simplicity, we can just append if we match the contact.
+                if (isForActiveChat) {
                     const msg: Message = {
                         id: data.id || `msg-${Date.now()}`,
-                        sender: data.fromMe ? 'Me' : data.from,
-                        recipient: data.fromMe ? (activeContact?.number || '') : 'Me',
-                        text: data.body || '',
-                        time: new Date(data.timestamp * 1000).toLocaleTimeString(),
+                        sender: isFromMe ? 'Me' : (data.sender || senderNumber),
+                        senderNumber: senderNumber,
+                        recipient: isFromMe ? recipientNumber : 'Me',
+                        text: data.text || data.body || '',
+                        time: data.time || new Date(data.timestamp * 1000).toLocaleTimeString(),
                         timestamp: new Date(data.timestamp * 1000).toISOString(),
-                        type: data.fromMe ? 'sent' : 'received',
-                        read: true // Client-side assumption for display
+                        type: isFromMe ? 'sent' : 'received',
+                        read: isFromMe || false // Mark as read if from me, unread if from others
                     };
 
                     setMessages(prev => {
@@ -222,16 +340,56 @@ const Chat: React.FC = () => {
                     });
 
                     // CRITICAL: If chat is open, mark as read on server immediately
-                    if (isForActiveChat && !data.fromMe) {
+                    if (!isFromMe) {
                         axios.post('http://localhost:3000/messages/read', {
-                            phoneNumber: activeContact.number
+                            phoneNumber: activeContactNumber
                         }).catch(err => console.error('[Chat] Failed to mark new message read:', err));
                     }
                 }
             }
 
-            // 2. Update Contacts (Unread count, last message)
-            refreshContacts(); // Re-fetch contacts to ensure latest data/order
+            // 2. Update Contacts List (Unread count, last message, time)
+            setContacts(prev => prev.map(contact => {
+                let contactNumber = contact.number;
+                if (typeof contactNumber === 'object') {
+                    contactNumber = (contactNumber as any)?.user || (contactNumber as any)?._serialized?.split('@')[0];
+                } else if (typeof contactNumber === 'string' && contactNumber.includes('@')) {
+                    contactNumber = contactNumber.split('@')[0];
+                }
+
+                // Check if this message is for this contact
+                const isForThisContact = 
+                    (!isFromMe && senderNumber === contactNumber) ||
+                    (isFromMe && recipientNumber === contactNumber);
+
+                if (isForThisContact) {
+                    // Filter JSON from message text
+                    let messageText = data.text || data.body || '';
+                    const isJSON = 
+                        !messageText || 
+                        messageText.includes('{"server"') || 
+                        messageText.includes('"user"') ||
+                        messageText.trim().startsWith('{');
+
+                    return {
+                        ...contact,
+                        lastMessageText: isJSON ? contact.lastMessageText : messageText, // Only update if not JSON
+                        lastMessageTime: new Date(data.timestamp * 1000).toISOString(),
+                        unreadCount: isFromMe ? (contact.unreadCount || 0) : ((contact.unreadCount || 0) + 1) // Increment if not from me
+                    };
+                }
+                return contact;
+            }));
+
+            // Sort contacts by last message time
+            setContacts(prev => {
+                const sorted = [...prev].sort((a, b) => {
+                    const timeA = a.lastMessageTime ? new Date(a.lastMessageTime).getTime() : 0;
+                    const timeB = b.lastMessageTime ? new Date(b.lastMessageTime).getTime() : 0;
+                    return timeB - timeA;
+                });
+                return sorted;
+            });
         });
 
         socket.on('sync-complete', (data: any) => {
@@ -343,7 +501,19 @@ const Chat: React.FC = () => {
             messagesByContact.get(contactNum)!.push(msg);
         });
 
-        const contactsWithUnread = contactsData.map((contact: any) => {
+        const contactsWithUnread = contactsData
+            .filter((contact: any) => {
+                // Filter out invalid contacts where both number and name are "0"
+                if (contact.number === '0' && contact.name === '0') {
+                    return false;
+                }
+                // Filter out contacts with no valid number
+                if (!contact.number || contact.number.trim() === '' || contact.number === '0') {
+                    return false;
+                }
+                return true;
+            })
+            .map((contact: any) => {
             const contactMessages = messagesByContact.get(contact.number) || [];
             const unreadCount = contactMessages.filter(msg =>
                 msg.sender === contact.number && !msg.read
@@ -355,22 +525,66 @@ const Chat: React.FC = () => {
                 )
                 : null;
 
-            // CRITICAL FIX: Trust the API - if name exists, use it
-            // Only fallback to number if name is truly missing or empty
+            // CRITICAL: Use name from database (contact_name) - API already returns the correct name
+            // The API returns contact.name which is the contact_name from database
+            // We should ALWAYS use it if it exists and is valid
             let displayName = contact.name;
-            if (!displayName || displayName.trim() === '' || displayName.trim() === contact.number) {
-                // Only use number as fallback if name is truly missing
+            
+            // CRITICAL: Only reject if name is clearly invalid
+            // If name is null, undefined, empty, or "0" - it means name is NOT saved
+            if (!displayName || displayName === null || displayName === undefined || 
+                displayName === '' || displayName === '0' || displayName.trim() === '' || displayName.trim() === '0') {
+                // No name saved - use phone number
                 displayName = contact.number;
+            } else {
+                // We have a name - check if it's invalid
+                const trimmedName = displayName.trim();
+                
+                // If name is same as number, it means API returned number as name (no name saved)
+                if (trimmedName === contact.number) {
+                    displayName = contact.number; // Use number
+                } 
+                // Filter out "WhatsApp" as name - it's not a real contact name
+                else if (trimmedName.toLowerCase() === 'whatsapp') {
+                    displayName = contact.number; // Use number instead
+                }
+                // Otherwise, USE THE NAME AS-IS (it's a valid contact name from database)
+                else {
+                    displayName = trimmedName; // Use the actual contact name
+                }
+            }
+            
+            // CRITICAL: Clean contact.number - remove JSON objects
+            let cleanNumber = contact.number;
+            if (typeof cleanNumber === 'object' || (typeof cleanNumber === 'string' && cleanNumber.includes('{'))) {
+                try {
+                    const parsed = typeof cleanNumber === 'string' ? JSON.parse(cleanNumber) : cleanNumber;
+                    cleanNumber = parsed.user || parsed._serialized?.split('@')[0] || String(cleanNumber);
+                } catch (e) {
+                    // If parsing fails, try to extract from string
+                    const match = String(cleanNumber).match(/"user":"(\d+)"/);
+                    if (match) cleanNumber = match[1];
+                    else cleanNumber = String(cleanNumber).split('@')[0];
+                }
+            }
+            // Filter out JSON strings from number
+            const numberStr = String(cleanNumber);
+            if (numberStr.includes('{"server"') || numberStr.includes('"server"') || numberStr.includes('"user"') || numberStr.trim().startsWith('{')) {
+                // If number is JSON, try to extract phone number
+                const match = numberStr.match(/"user":"(\d+)"/);
+                cleanNumber = match ? match[1] : '';
             }
 
-            return {
-                number: contact.number,
-                name: displayName, // Always set name properly
+            const finalContact = {
+                number: cleanNumber, // Clean number without JSON
+                name: displayName, // Always set name properly (from database contact_name)
                 unreadCount,
                 lastMessageText: lastMessage?.text || '',
                 lastMessageTime: lastMessage?.time || contact.lastMessageTime,
                 isGroup: contact.isGroup || false
             };
+            
+            return finalContact;
         });
 
         contactsWithUnread.sort((a: Contact, b: Contact) => {
@@ -379,40 +593,32 @@ const Chat: React.FC = () => {
             return timeB - timeA;
         });
 
+        // DEBUG: Log first few contacts to verify names are being preserved
+        if (contactsWithUnread.length > 0) {
+            console.log(`[Chat] Processed ${contactsWithUnread.length} contacts. First 3:`, 
+                contactsWithUnread.slice(0, 3).map(c => `"${c.name}" (${c.number})`).join(', '));
+        }
+
         setContacts(contactsWithUnread);
         setLoading(false);
     };
 
-    // Initial Load and check WhatsApp status - FIXED: Always try to load data
+    // Initial Load - FIXED: Don't trigger sync here, let WhatsAppConnect handle it
     useEffect(() => {
         const initialize = async () => {
-            // Check WhatsApp status first
+            // Just check status and load contacts - DON'T trigger sync
+            // Sync should only happen from WhatsAppConnect page to avoid interruption
             try {
                 const statusResponse = await axios.get('http://localhost:3000/api/whatsapp-web/status', {
                     withCredentials: true
                 });
                 console.log('[Chat] WhatsApp status:', statusResponse.data);
 
-                // If ready but no data or last sync was long ago, trigger sync
-                if (statusResponse.data.ready) {
-                    const hasRecentData = statusResponse.data.hasData && statusResponse.data.session?.last_sync;
-                    const shouldSync = !hasRecentData ||
-                        (statusResponse.data.session?.last_sync &&
-                            (Date.now() - new Date(statusResponse.data.session.last_sync).getTime()) > 3600000); // 1 hour
-
-                    if (shouldSync) {
-                        console.log('[Chat] ⚡ WhatsApp ready but needs sync, triggering FAST sync...');
-                        try {
-                            // Don't await - let it run in background
-                            axios.post('http://localhost:3000/api/whatsapp-web/sync', {}, {
-                                withCredentials: true
-                            }).catch(syncErr => {
-                                console.error('[Chat] Error triggering initial sync:', syncErr);
-                            });
-                        } catch (syncErr) {
-                            console.error('[Chat] Error triggering initial sync:', syncErr);
-                        }
-                    }
+                // Only log status, don't trigger sync here
+                if (!statusResponse.data.ready) {
+                    console.log('[Chat] ⚠️ WhatsApp not ready - user should connect first');
+                } else {
+                    console.log('[Chat] ✅ WhatsApp ready - loading contacts...');
                 }
             } catch (statusErr) {
                 console.log('[Chat] Could not check WhatsApp status, continuing anyway:', statusErr);
@@ -494,12 +700,30 @@ const Chat: React.FC = () => {
             );
             setMessages(response.data);
 
-            // Mark read
-            if (response.data.some((msg: Message) => !msg.read && msg.sender === phoneNumber)) {
+            // Mark read and update unread count
+            const unreadMessages = response.data.filter((msg: Message) => !msg.read && msg.sender === phoneNumber);
+            if (unreadMessages.length > 0) {
                 await axios.post('http://localhost:3000/messages/read', {
                     phoneNumber: phoneNumber
                 });
-                refreshContacts(); // Update unread count UI
+                // Update local state immediately (optimistic update)
+                setContacts(prev => prev.map(contact => {
+                    let contactNumber = contact.number;
+                    if (typeof contactNumber === 'object') {
+                        contactNumber = (contactNumber as any)?.user || (contactNumber as any)?._serialized?.split('@')[0];
+                    } else if (typeof contactNumber === 'string' && contactNumber.includes('@')) {
+                        contactNumber = contactNumber.split('@')[0];
+                    }
+                    if (contactNumber === phoneNumber) {
+                        return { ...contact, unreadCount: 0 };
+                    }
+                    return contact;
+                }));
+                // Also update active contact
+                if (activeContact) {
+                    setActiveContact(prev => prev ? { ...prev, unreadCount: 0 } : null);
+                }
+                refreshContacts(); // Refresh to sync with server
             }
 
             // AUTO-SYNC HISTORY if too few messages (e.g. just started or incomplete)
@@ -686,7 +910,7 @@ const Chat: React.FC = () => {
                     ) : (
                         filteredContacts.map((contact) => (
                             <ContactItem
-                                key={contact.name}
+                                key={contact.number || `contact-${Math.random()}`}
                                 contact={contact}
                                 isActive={activeContact?.number === contact.number}
                                 isDark={isDark}
@@ -704,27 +928,65 @@ const Chat: React.FC = () => {
                     <>
                         {/* Chat Header */}
                         <div className={`p-4 border-b ${isDark ? 'bg-surface-dark border-gray-700' : 'bg-white border-gray-200'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? 'bg-primary/20' : 'bg-primary/10'
-                                    }`}>
-                                    <Phone className={`w-5 h-5 ${isDark ? 'text-primary' : 'text-primary'}`} />
-                                </div>
-                                <div>
-                                    <h3 className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                        {cleanContactName(activeContact.name || activeContact.number)}
-                                    </h3>
-                                    {/* Always show phone number as subtitle if name exists */}
-                                    {activeContact.name && activeContact.name !== activeContact.number && (
-                                        <p className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            {activeContact.number}
-                                        </p>
-                                    )}
-                                    {/* Show number as main if no name */}
-                                    {(!activeContact.name || activeContact.name === activeContact.number) && (
-                                        <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            WhatsApp Contact
-                                        </p>
-                                    )}
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3 flex-1">
+                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isDark ? 'bg-primary/20' : 'bg-primary/10'}`}>
+                                        <Phone className={`w-5 h-5 ${isDark ? 'text-primary' : 'text-primary'}`} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-2">
+                                            <h3 className={`font-semibold truncate ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                {(() => {
+                                                    // Extract phone number first
+                                                    let phoneNumber = activeContact.number;
+                                                    if (typeof phoneNumber === 'object') {
+                                                        phoneNumber = (phoneNumber as any)?.user || (phoneNumber as any)?._serialized?.split('@')[0] || '';
+                                                    }
+                                                    const phoneStr = String(phoneNumber || '');
+                                                    
+                                                    // If name is "0", treat it as invalid and use phone number instead
+                                                    if (activeContact.name && activeContact.name.trim() && activeContact.name !== '0' && activeContact.name !== phoneStr) {
+                                                        const cleaned = cleanContactName(activeContact.name);
+                                                        // If cleaned name is valid (not "Unknown Contact"), show it
+                                                        if (cleaned !== 'Unknown Contact' && cleaned !== 'WhatsApp Contact' && cleaned.trim()) {
+                                                            return cleaned;
+                                                        }
+                                                    }
+                                                    
+                                                    // Always show phone number instead of "Unknown Contact"
+                                                    if (phoneStr && phoneStr !== '0' && phoneStr.trim()) {
+                                                        // Clean the number - remove JSON
+                                                        let cleanNum = phoneStr;
+                                                        if (phoneStr.includes('{"server"') || phoneStr.includes('"server"') || phoneStr.includes('"user"')) {
+                                                            const match = phoneStr.match(/"user":"(\d+)"/);
+                                                            cleanNum = match ? match[1] : phoneStr.split('@')[0];
+                                                        }
+                                                        return cleanNum;
+                                                    }
+                                                    
+                                                    // Last resort - show generic placeholder
+                                                    return 'Contact';
+                                                })()}
+                                            </h3>
+                                            {activeContact.unreadCount !== undefined && activeContact.unreadCount > 0 && (
+                                                <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold rounded-full bg-blue-500 text-white shadow-sm">
+                                                    {activeContact.unreadCount}
+                                                </span>
+                                            )}
+                                        </div>
+                                        {activeContact.name && activeContact.name.trim() && activeContact.name !== activeContact.number && activeContact.number && (
+                                            <p className={`text-sm truncate ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                {typeof activeContact.number === 'object' 
+                                                    ? ((activeContact.number as any)?.user || (activeContact.number as any)?._serialized?.split('@')[0] || '')
+                                                    : String(activeContact.number)}
+                                            </p>
+                                        )}
+                                        {activeContact.lastMessageTime && (
+                                            <p className={`text-xs ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                {formatTime(activeContact.lastMessageTime)}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
                             </div>
                         </div>

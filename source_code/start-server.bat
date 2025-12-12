@@ -6,3 +6,4 @@ echo Starting server...
 cd /d "%~dp0"
 npm run dev
 
+

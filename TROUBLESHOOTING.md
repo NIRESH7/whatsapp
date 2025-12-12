@@ -135,3 +135,4 @@ Before using WhatsApp Connect:
 4. Check the backend console for detailed error messages
 5. Make sure all dependencies are installed: `npm install` in both `source_code` and `source_code/whatsapp_integration`
 
+
